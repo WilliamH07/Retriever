@@ -12,6 +12,42 @@ transporter de la donnée capteur.
 
 ---
 
+## Lancer — la fiche à garder sous la main
+
+Tout est installé, on veut juste voir la donnée. **Sur le calculateur Ubuntu**,
+dans chaque nouveau terminal :
+
+```bash
+source ~/retriever/ros2_ws/install/setup.bash
+```
+
+⚠️ Ce fichier est regénéré à chaque `colcon build` avec la liste des paquets
+présents à ce moment-là. Un terminal ouvert avant le dernier build ne connaît
+pas les paquets construits depuis — `package 'ydlidar_ros2_driver' not found`
+veut presque toujours dire ça, pas un paquet absent.
+
+| Banc | Commande | Ce qu'on regarde |
+|---|---|---|
+| **IMU** | `ros2 launch retriever_bringup bench_imu.launch.py device:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0` | `ros2 topic hz /imu/data` → ~100 Hz |
+| **Lidar** | `ros2 launch retriever_bringup bench_lidar.launch.py` | `ros2 topic hz /scan` → 6–12 Hz |
+| **Les deux** | le banc IMU d'abord, puis le lidar avec `foxglove:=false` | un seul pont Foxglove par port 8765 |
+
+Foxglove Studio, depuis le Mac : **Open connection** → `ws://<adresse-ubuntu>:8765`,
+puis menu des mises en page → **Import from file…** → `docs/foxglove/bench_imu.json`
+ou `bench_lidar.json`.
+
+Sans ROS, pour savoir si l'ESP32 parle, depuis n'importe quelle machine :
+
+```bash
+python3 tools/link_monitor.py --device <port>
+```
+
+Ce qui doit être vert dans le panneau Diagnostics de Foxglove : **Liaison saine**,
+**Nœud présent**. Sur l'IMU, l'avertissement « étalonnage non sauvegardé » est
+volontaire jusqu'à l'intégration sur le robot.
+
+---
+
 ## 0. Les trois rôles
 
 Rien n'oblige à ce que ce soient trois machines, mais ce sont trois jeux
@@ -448,7 +484,10 @@ Relevé du banc, 20 septembre 2026 : 667 points, 446 utiles, **67 %**, 0,31 à
 distance — pas le capteur : le X4 perd beaucoup sur ce qui n'est ni clair ni
 mat, et c'est la raison pour laquelle le §00 prévoit son remplacement en phase 4.
 
-**4. L'orientation — et celle-là ne se vérifie pas sur le papier.**
+**4. L'orientation — et celle-là ne se vérifie pas sur le papier.** ✅ Validée au
+banc le 20 septembre 2026 avec `reversion: false`, `inverted: false` : un objet
+à 1 m droit devant apparaît devant. À refaire si le lidar change, ou si la carte
+adaptatrice change — c'est elle qui fixe le sens de rotation vu du pilote.
 
 ⚠️ Les paramètres `reversion` et `inverted` sont exactement ce qui retourne ou
 miroite le scan. Une erreur ici donne une carte qui a l'air correcte et un robot
@@ -542,9 +581,10 @@ même version.
 
 ## 7. Pour aller plus loin
 
-- **L'état du banc, les défauts déjà trouvés et ce qu'il reste à faire** :
-  [`docs/HANDOFF-banc-imu.md`](HANDOFF-banc-imu.md). C'est le document à lire en
-  premier quand on reprend ce travail après une interruption.
+- **L'état des bancs, les défauts déjà trouvés et ce qu'il reste à faire** :
+  [`docs/HANDOFF-banc-imu.md`](HANDOFF-banc-imu.md) et
+  [`docs/HANDOFF-banc-lidar.md`](HANDOFF-banc-lidar.md). Ce sont les documents à
+  lire en premier quand on reprend ce travail après une interruption.
 
 - L'architecture logicielle complète, la couche liaison et la recette de banc B1 :
   [`docs/architecture/13-architecture-logicielle-liaison.md`](architecture/13-architecture-logicielle-liaison.md)

@@ -63,11 +63,11 @@ ydlidar_ros2_driver_node:
     abnormal_check_count: 4       # ✅
     auto_reconnect: true          # ✅
 
-    # 🔴 false / false est la configuration qui marche, mais ces deux-là ne
-    # changent rien à l'acquisition : ils retournent ou miroitent le scan. Ils
-    # ne se vérifient PAS sur le papier — un objet à 1 m droit devant, et on
-    # regarde où il apparaît. Une erreur ici donne une carte plausible et un
-    # robot qui tourne du mauvais côté. Procédure dans DEMARRAGE.md §4 ter.
+    # ✅ VALIDÉS au banc le 20 septembre 2026 par la mesure physique — un objet
+    # à 1 m droit devant apparaît devant. Ces deux-là ne changent rien à
+    # l'acquisition : ils retournent ou miroitent le scan, et une erreur donne
+    # une carte plausible avec un robot qui tourne du mauvais côté. À REFAIRE si
+    # le lidar ou sa carte adaptatrice change. Procédure : DEMARRAGE.md §4 ter.
     reversion: false
     inverted: false
 

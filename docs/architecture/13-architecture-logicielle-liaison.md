@@ -609,6 +609,18 @@ Capteur immobile, loin de tout métal, puis à 10 cm d'un moteur-roue non alimen
 | §I.1 | `retriever_can_bridge` | `retriever_link_bridge`. |
 | §G.3 | `H_INTN` sur GPIO34 | Sur le banc, GPIO25 : tirage interne disponible. GPIO34 redevient correct sur la carte, où le tirage externe sera au schéma. |
 
+**Corrections issues du banc, 20 septembre 2026.** Chacune est une mesure qui contredit le texte, pas une préférence. Le détail et le mécanisme sont dans `docs/HANDOFF-banc-imu.md` et `docs/HANDOFF-banc-lidar.md`.
+
+| Section | Texte actuel | Correction |
+|---|---|---|
+| §03, L7 | X4 « double canal », paramètres du constructeur | **Mono-canal en pratique** sur l'exemplaire du banc : `isSingleChannel: true`, `support_motor_dtr: true`, `intensity_bit: 10`, `sample_rate: 5`. Avec les valeurs de la table constructeur, le capteur livre ses informations produit puis aucun scan. Établi par reproduction à l'identique de `tri_test`. |
+| §03 | `/scan` conforme REP-117, invalides en `+inf` | **Faux avec ce pilote** : les sans-écho sortent à `0.0` malgré `invalid_range_is_inf: true`. Tout consommateur doit filtrer sous `range_min`. Le taux de couverture se compte sur ce critère — 67 % au banc. |
+| §03 | `/scan` à 7 Hz | ~7,5 Hz, **libre et non asservi** : le moteur du X4 n'est pas commandé sur cette carte adaptatrice. La fréquence n'est pas un réglage, c'est une constante du matériel. |
+| §AE, §AG.1 | Séquence de reset du BNO085 | **Deux défauts silencieux qui se masquaient** : MOSI doit émettre des zéros pendant les lectures (le SPI est full-duplex et le capteur lit MOSI comme un en-tête SHTP), et le réveil PS0 est indispensable avant chaque écriture. Le second était invisible tant que le premier existait. |
+| §AG.4 | « ouvrir le port série » | Sur une DevKitC, DTR et RTS pilotent IO0 et EN par le circuit d'auto-reset : l'ouverture d'un port peut laisser la carte dans le **bootloader ROM**, muette à 921600. Le transport et les outils remettent la carte en mode exécution à l'ouverture (`serial.reset_on_open`). Sur CAN, la question disparaît. |
+| §AG.1 | Compteur de resets du capteur | Le reset d'initialisation du BNO085 n'est pas un incident : le compter mettait l'IMU en ERREUR dès le boot, ce qui rend le voyant inutile. |
+| §AF.5 | Étalonnage du BNO085 implicite | Il n'y en avait **aucun** : `sh2_setCalConfig` n'était jamais appelé. Biais accéléromètre de 0,58 m/s² mesuré, cap annoncé à π rad d'incertitude. Activé, avec sauvegarde en flash et pilotage au banc (`tools/imu_cal.py`). |
+
 ## AH.2 Ce qui est confirmé sans changement
 
 - Le CAN reste le bus temps réel. La série est un transport de développement, et la §AB.5 énumère tout ce qu'elle ne fournit pas.
@@ -625,14 +637,32 @@ Capteur immobile, loin de tout métal, puis à 10 cm d'un moteur-roue non alimen
 | **L2** | Écart type du gyromètre et de l'accéléromètre au repos | Les covariances de `/imu/data`, donc le réglage de l'EKF | §AG.6 |
 | **L3** | Norme du champ magnétique à trois distances d'un moteur | Le choix entre `ROTATION_VECTOR` et `GAME_ROTATION_VECTOR` | §AG.9 |
 
+**État des mesures au 20 septembre 2026 :**
+
+| # | Résultat | Statut |
+|---|---|---|
+| **L1** | Aller-retour médian **3,14 ms**, max 3,88 ms → `latency_offset_ms: 1.57` | ✅ faite, valeur en configuration |
+| **L2** | — | ⏳ à faire carte montée. Plancher connu : résolution gyro 1/512 rad/s, donc σ ≥ 0,00056 rad/s |
+| **L3** | — | ⏳ à faire carte montée, moteurs alimentés. **Bloque la décision §AF.7** |
+| **L4** (nouvelle) | Biais accéléromètre à l'usine : **0,58 m/s²**, `b = (+0,27 ; −0,378 ; −0,34)` | ✅ mesuré ; corrigé par l'étalonnage dynamique, à sauvegarder une fois monté |
+| **L5** (nouvelle) | Lidar : 667 points/tour, ~7,5 Hz, **67 % de couverture**, 0,31–5,19 m | ✅ faite, au-dessus du seuil §03 |
+| **L6** (nouvelle) | Orientation du lidar : objet à 1 m devant apparaît devant avec `reversion: false`, `inverted: false` | ✅ validée |
+
 ## AH.4 La suite, et pourquoi dans cet ordre
 
 ```
-   B1  IMU → ROS → Foxglove                         ◄── ce document
+   B1  IMU → ROS → Foxglove                         ✅ 20 sept. 2026
         │  ce que ça prouve : le protocole, le cadrage, la génération,
         │  les conventions de repères, la chaîne de covariances
+        │  → docs/HANDOFF-banc-imu.md
         ▼
-   B2  Deuxième capteur sur le même socle
+   B1' Lidar X4 → ROS → Foxglove                    ✅ 20 sept. 2026
+        │  hors socle ESP32 : USB direct, pilote tiers épinglé (.repos).
+        │  ce que ça prouve : la méthode — reproduire un témoin qui marche,
+        │  puis s'en écarter un paramètre à la fois
+        │  → docs/HANDOFF-banc-lidar.md
+        ▼
+   B2  Deuxième capteur sur le socle ESP32
         │  GPS, ou températures. Coût attendu : une trame dans le YAML,
         │  une tâche, un publisher. Si c'est plus cher que ça, B1 a raté.
         ▼
