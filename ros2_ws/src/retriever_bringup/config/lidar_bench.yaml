@@ -79,8 +79,14 @@ ydlidar_ros2_driver_node:
     range_min: 0.12
     range_max: 10.0
 
-    # ✅ REP-117 : une mesure hors portée se dit +inf, pas 0.0. Réglage côté
-    # ROS uniquement, le SDK ne le voit pas.
+    # ⚠️ SANS EFFET sur ce pilote, mesuré au banc : avec true, les mesures sans
+    # écho sortent quand même à 0.0 — 221 zéros sur 667 points, aucun +inf.
+    # REP-117 voudrait +inf, et c'est ce que ce réglage promet ; il ne le tient
+    # pas. Laissé à true pour dire l'intention, mais TOUT CONSOMMATEUR DE /scan
+    # DOIT FILTRER LES VALEURS SOUS range_min lui-même. slam_toolbox et la
+    # couche d'obstacles de Nav2 le font ; un nœud maison qui l'oublierait
+    # verrait 221 obstacles collés au capteur. Le taux de couverture se calcule
+    # aussi sur ce critère, pas sur isfinite() : voir DEMARRAGE.md §4 ter.
     invalid_range_is_inf: true
 
     ignore_array: ""              # secteurs masqués une fois monté sur le châssis

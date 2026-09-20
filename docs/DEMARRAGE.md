@@ -426,16 +426,27 @@ ros2 topic hz /scan
 ros2 topic echo /scan --once --field angle_min --field angle_max --field range_min --field range_max
 ```
 
-**3. Le taux de points valides.** ✅ §03 : **> 60 %** est sain, 30–60 % dégradé,
-sous 30 % en panne. Les points sans retour sortent en `+inf` (REP-117) :
+**3. Le taux de couverture.** ✅ §03 : **> 60 %** est sain, 30–60 % dégradé,
+sous 30 % en panne.
+
+⚠️ Les mesures sans écho sortent à **`0.0`**, pas en `+inf` — le pilote ignore
+`invalid_range_is_inf`, mesuré au banc. Compter `isfinite()` donne donc 100 %
+et ne mesure rien ; le bon critère est **sous `range_min`** :
 
 ```bash
 ros2 topic echo /scan --once --field ranges | python3 -c "
-import sys, math
-v = [float(x) for x in sys.stdin.read().replace('[','').replace(']','').split(',') if x.strip()]
-ok = [x for x in v if math.isfinite(x)]
-print(f'{len(ok)}/{len(v)} valides — {100*len(ok)/len(v):.0f} %')"
+import sys, re
+s = sys.stdin.read()
+v = [float(x) for x in re.findall(r'[-+]?(?:\d+\.?\d*(?:e[-+]?\d+)?|inf|nan)', s[s.index('['):])]
+u = [x for x in v if x >= 0.12]
+print(f'{len(v)} points, {len(u)} utiles — {100*len(u)/len(v):.0f} % de couverture, '
+      f'{min(u):.2f} a {max(u):.2f} m')"
 ```
+
+Relevé du banc, 20 septembre 2026 : 667 points, 446 utiles, **67 %**, 0,31 à
+5,19 m. Le tiers manquant est l'environnement — surfaces sombres, vitres,
+distance — pas le capteur : le X4 perd beaucoup sur ce qui n'est ni clair ni
+mat, et c'est la raison pour laquelle le §00 prévoit son remplacement en phase 4.
 
 **4. L'orientation — et celle-là ne se vérifie pas sur le papier.**
 
