@@ -55,3 +55,4 @@ bags/
 .idea/
 .DS_Store
 Thumbs.db
+stale-*
