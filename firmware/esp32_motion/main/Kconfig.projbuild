@@ -1,0 +1,56 @@
+menu "Retriever"
+
+    menu "Liaison"
+
+        config RETRIEVER_LINK_BACKEND_TWAI
+            bool "Utiliser le bus CAN (TWAI) au lieu de la liaison serie"
+            default n
+            help
+                Meme option que sur le noeud SAFETY. Voir esp32_safety.
+
+        config RETRIEVER_LINK_CONSOLE_TUNNEL
+            bool "Faire passer les journaux du firmware dans la liaison"
+            default y
+            help
+                Meme option que sur le noeud SAFETY. Voir esp32_safety pour
+                la liste de ce qui continue a ecrire en clair malgre elle.
+
+    endmenu
+
+    menu "Moteurs (banc)"
+
+        config RETRIEVER_MOTOR_COUNT
+            int "Nombre de moteurs cables"
+            range 1 4
+            default 3
+            help
+                Les moteurs 0 .. N-1 sont pilotes ; les autres sont ignores
+                meme si une consigne arrive pour eux. Le protocole, la table
+                des broches et les trames sont dimensionnes pour 4 : passer
+                cette valeur a 4 est la SEULE chose a faire cote logiciel
+                quand le quatrieme moteur est cable.
+
+        config RETRIEVER_MOTOR_CMD_TIMEOUT_MS
+            int "Delai sans consigne avant arret (ms)"
+            range 100 5000
+            default 500
+            help
+                Si aucune MOTOR_CMD n'arrive pendant ce delai, toutes les
+                consignes sont ramenees a zero et STOP est asserte. C'est
+                ce qui arrete les roues quand le PC plante ou qu'un cable
+                se debranche. Ne pas l'augmenter pour cacher une liaison
+                qui hoquette : c'est la liaison qu'il faut soigner.
+
+        config RETRIEVER_MOTOR_SLEW_PER_S
+            int "Pente maximale de la consigne (millieme par seconde)"
+            range 200 20000
+            default 2000
+            help
+                2000 = de 0 a pleine echelle en 0,5 s. Protege les
+                variateurs et les reducteurs contre les a-coups de commande
+                (un curseur Foxglove lache d'un coup, par exemple). Ne
+                s'applique PAS a la coupure : un arret est immediat.
+
+    endmenu
+
+endmenu

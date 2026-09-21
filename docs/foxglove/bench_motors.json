@@ -1,0 +1,170 @@
+{
+  "configById": {
+    "Publish!enable": {
+      "topicName": "/retriever/motor_enable",
+      "datatype": "retriever_msgs/msg/MotorEnable",
+      "buttonText": "ARMER m0..m2 (7) — 15 pour les quatre",
+      "buttonTooltip": "",
+      "buttonColor": "#f5a623",
+      "advancedView": true,
+      "value": "{\n  \"enable_mask\": 7\n}"
+    },
+    "Publish!disable": {
+      "topicName": "/retriever/motor_enable",
+      "datatype": "retriever_msgs/msg/MotorEnable",
+      "buttonText": "DESARMER (masque 0)",
+      "buttonTooltip": "",
+      "buttonColor": "#888888",
+      "advancedView": true,
+      "value": "{\n  \"enable_mask\": 0\n}"
+    },
+    "Publish!cmd": {
+      "topicName": "/retriever/motor_command",
+      "datatype": "retriever_msgs/msg/MotorCommand",
+      "buttonText": "ENVOYER LA CONSIGNE (tenue 10 s)",
+      "buttonTooltip": "",
+      "buttonColor": "#00A783",
+      "advancedView": true,
+      "value": "{\n  \"duty\": [0.2, 0.0, 0.0, 0.0]\n}"
+    },
+    "Publish!zero": {
+      "topicName": "/retriever/motor_command",
+      "datatype": "retriever_msgs/msg/MotorCommand",
+      "buttonText": "STOP — zeros",
+      "buttonTooltip": "",
+      "buttonColor": "#d0021b",
+      "advancedView": true,
+      "value": "{\n  \"duty\": [0.0, 0.0, 0.0, 0.0]\n}"
+    },
+    "Publish!estop": {
+      "topicName": "/retriever/estop",
+      "datatype": "std_msgs/msg/Empty",
+      "buttonText": "ARRET D'URGENCE (re-armer ensuite)",
+      "buttonTooltip": "",
+      "buttonColor": "#7a0000",
+      "advancedView": true,
+      "value": "{}"
+    },
+    "Plot!applied": {
+      "title": "Consigne appliquee par moteur (rapport cyclique signe)",
+      "paths": [
+        {
+          "value": "/retriever/motor_state.applied[0]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "m0"
+        },
+        {
+          "value": "/retriever/motor_state.applied[1]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "m1"
+        },
+        {
+          "value": "/retriever/motor_state.applied[2]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "m2"
+        },
+        {
+          "value": "/retriever/motor_state.applied[3]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "m3"
+        }
+      ],
+      "minYValue": -1,
+      "maxYValue": 1,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 20
+    },
+    "Plot!age": {
+      "title": "Age de la commande vue par le noeud (ms)",
+      "paths": [
+        {
+          "value": "/retriever/motor_state.cmd_age_ms",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "cmd_age_ms"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "followingViewWidth": 20
+    },
+    "RawMessages!state": {
+      "topicPath": "/retriever/motor_state"
+    },
+    "RawMessages!node": {
+      "topicPath": "/retriever/motion/node_status"
+    },
+    "DiagnosticSummary!diag": {
+      "minLevel": 0,
+      "pinnedIds": [],
+      "hardwareIdFilter": "",
+      "topicToRender": "/diagnostics",
+      "sortByLevel": true
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "splitPercentage": 40,
+    "first": {
+      "direction": "column",
+      "splitPercentage": 22,
+      "first": {
+        "direction": "row",
+        "splitPercentage": 50,
+        "first": "Publish!enable",
+        "second": "Publish!disable"
+      },
+      "second": {
+        "direction": "column",
+        "splitPercentage": 45,
+        "first": "Publish!cmd",
+        "second": {
+          "direction": "column",
+          "splitPercentage": 50,
+          "first": {
+            "direction": "row",
+            "splitPercentage": 50,
+            "first": "Publish!zero",
+            "second": "Publish!estop"
+          },
+          "second": "DiagnosticSummary!diag"
+        }
+      }
+    },
+    "second": {
+      "direction": "column",
+      "splitPercentage": 45,
+      "first": "Plot!applied",
+      "second": {
+        "direction": "column",
+        "splitPercentage": 40,
+        "first": "Plot!age",
+        "second": {
+          "direction": "row",
+          "splitPercentage": 55,
+          "first": "RawMessages!state",
+          "second": "RawMessages!node"
+        }
+      }
+    }
+  }
+}

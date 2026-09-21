@@ -60,3 +60,24 @@ tourne déjà, lancer le lidar avec `foxglove:=false`.
 4. **`/retriever/link_status`** — `protocol_match` vrai, `unknown_frames` à 0.
 
 *Copyright (c) 2026 William Hanczyk — Apache License 2.0*
+
+## `bench_motors.json` — banc B2, les variateurs
+
+| Panneau | Contenu |
+|---|---|
+| Publish ×2 | `/retriever/motor_enable` — **ARMER** (masque 7 = m0..m2, 15 = les quatre) et **DESARMER** (0) |
+| Publish | `/retriever/motor_command` — la consigne, `duty: [m0, m1, m2, m3]` dans [-1, 1] |
+| Publish ×2 | **STOP** (zéros) et **ARRÊT D'URGENCE** (`/retriever/estop`, à ré-armer ensuite) |
+| Plot | `/retriever/motor_state.applied[0..3]` — ce que le nœud applique vraiment, après pente et chien de garde |
+| Plot | `/retriever/motor_state.cmd_age_ms` — doit rester sous 30 ms tant que le pont tourne |
+| Diagnostics | Moteurs / Liaison / Nœud MOTION_FRONT |
+| Raw Messages | `/retriever/motor_state` et `/retriever/motion/node_status` |
+
+Séquence : **ARMER** → éditer `duty` dans le panneau consigne → **ENVOYER** →
+la roue tourne 10 s (`motors.command_timeout_s`) puis s'arrête seule, ou avant
+avec **STOP**. Modifier `duty` ne publie rien tant qu'on n'a pas cliqué.
+
+⚠️ Le panneau Publish n'émet qu'au clic. C'est le pont qui répète la dernière
+consigne à 50 Hz vers l'ESP32 ; c'est lui aussi qui l'annule après
+`command_timeout_s`. Le chien de garde du firmware (500 ms sans trame) reste
+la vraie protection si le PC ou le câble lâche.

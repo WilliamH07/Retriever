@@ -4,7 +4,7 @@
 //  Source     : firmware/protocol/protocol.yaml
 //  Générateur : firmware/protocol/generate.py
 //  Version    : 0.1.0
-//  Hash       : 0xE8391C47
+//  Hash       : 0x670192A7
 //
 //  Enveloppe C++17 au-dessus de l'en-tête C. Le code de sérialisation n'est
 //  PAS dupliqué : ce fichier inclut retriever_protocol.h, exactement le même
@@ -189,6 +189,57 @@ inline std::optional<MotStatusRear> unpack_mot_status_rear(const Frame & f)
 {
     MotStatusRear m{};
     if (!::rt_mot_status_rear_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
+// MOTOR_CMD — id 0x110, dlc 8, émetteur HOST [bench]
+using MotorCmd = ::rt_motor_cmd_t;
+inline constexpr std::uint16_t kMotorCmdId = RT_ID_MOTOR_CMD;
+inline constexpr std::uint8_t  kMotorCmdDlc = RT_DLC_MOTOR_CMD;
+inline Frame pack(const MotorCmd & m)
+{
+    Frame f{};
+    ::rt_motor_cmd_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorCmd> unpack_motor_cmd(const Frame & f)
+{
+    MotorCmd m{};
+    if (!::rt_motor_cmd_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
+// MOTOR_ENABLE — id 0x111, dlc 2, émetteur HOST [bench]
+using MotorEnable = ::rt_motor_enable_t;
+inline constexpr std::uint16_t kMotorEnableId = RT_ID_MOTOR_ENABLE;
+inline constexpr std::uint8_t  kMotorEnableDlc = RT_DLC_MOTOR_ENABLE;
+inline Frame pack(const MotorEnable & m)
+{
+    Frame f{};
+    ::rt_motor_enable_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorEnable> unpack_motor_enable(const Frame & f)
+{
+    MotorEnable m{};
+    if (!::rt_motor_enable_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
+// MOTOR_STATE — id 0x1A0, dlc 8, émetteur MOTION_FRONT [bench]
+using MotorState = ::rt_motor_state_t;
+inline constexpr std::uint16_t kMotorStateId = RT_ID_MOTOR_STATE;
+inline constexpr std::uint8_t  kMotorStateDlc = RT_DLC_MOTOR_STATE;
+inline Frame pack(const MotorState & m)
+{
+    Frame f{};
+    ::rt_motor_state_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorState> unpack_motor_state(const Frame & f)
+{
+    MotorState m{};
+    if (!::rt_motor_state_unpack(&f, &m)) return std::nullopt;
     return m;
 }
 
@@ -532,7 +583,7 @@ inline std::optional<HeartbeatSafety> unpack_heartbeat_safety(const Frame & f)
     return m;
 }
 
-// HEARTBEAT_MOTION_FRONT — id 0x702, dlc 8, émetteur MOTION_FRONT [planned]
+// HEARTBEAT_MOTION_FRONT — id 0x702, dlc 8, émetteur MOTION_FRONT [bench]
 using HeartbeatMotionFront = ::rt_heartbeat_motion_front_t;
 inline constexpr std::uint16_t kHeartbeatMotionFrontId = RT_ID_HEARTBEAT_MOTION_FRONT;
 inline constexpr std::uint8_t  kHeartbeatMotionFrontDlc = RT_DLC_HEARTBEAT_MOTION_FRONT;

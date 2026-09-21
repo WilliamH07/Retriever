@@ -123,6 +123,18 @@ enums:
       CURRENT_LIMIT: 0x10
       OVERTEMP:    0x20
 
+  motor_flag:
+    doc: >
+      État du nœud moteur de banc, porté par MOTOR_STATE. Champ de bits.
+      CMD_TIMEOUT est le plus important : il dit que la consigne a été
+      ramenée à zéro parce que le calculateur s'est tu.
+    bitfield: true
+    values:
+      ENABLED:      0x01   # au moins un moteur autorisé
+      CMD_TIMEOUT:  0x02   # aucune MOTOR_CMD depuis plus de 500 ms → consignes à zéro
+      ESTOP:        0x04   # arrêt logiciel reçu, il faut ré-armer
+      NEVER_ARMED:  0x08   # aucune MOTOR_ENABLE reçue depuis le démarrage
+
   log_level:
     doc: "Niveau d'un fragment de journal tunnellisé (§AC.5)."
     values:
@@ -229,6 +241,66 @@ frames:
     like: MOT_STATUS_FRONT
 
   # --- Puissance et batterie -------------------------------------------------
+
+  # --- Banc moteurs : un seul nœud, jusqu'à quatre moteurs -------------------
+  #
+  #  ⚠️ Trames de BANC. Le dossier prévoit deux nœuds MOTION à deux roues
+  #  chacun (CMD_WHEELS_*, FB_WHEELS_*) commandés en vitesse par ros2_control.
+  #  Ici : un seul ESP32, une consigne en RAPPORT CYCLIQUE et non en vitesse,
+  #  aucun retour Hall — la carte variateur gère son propre asservissement.
+  #  C'est ce qu'il faut pour faire tourner quatre moteurs depuis Foxglove
+  #  avant que la carte motor_interface n'existe. Les trames sont dimensionnées
+  #  pour quatre moteurs dès maintenant : ajouter le quatrième ne change pas
+  #  le protocole, seulement une ligne dans board_config.h du firmware.
+
+  - name: MOTOR_CMD
+    id: 0x110
+    sender: HOST
+    rate_hz: 50
+    impl: bench
+    doc: >
+      Consigne par moteur, en rapport cyclique signé : -1 = pleine vitesse
+      arrière, +1 = pleine vitesse avant, 0 = arrêt. Le signe fixe DIR, la
+      valeur absolue fixe VR. ⚠️ Doit être RÉPÉTÉE à 50 Hz : le nœud ramène
+      tout à zéro s'il ne reçoit rien pendant 500 ms. Ce n'est pas un
+      choix d'ergonomie, c'est ce qui arrête les roues quand le PC plante.
+    fields:
+      - {name: m0, type: i16, scale: 0.001, unit: "1", doc: "moteur 0, -1..+1"}
+      - {name: m1, type: i16, scale: 0.001, unit: "1"}
+      - {name: m2, type: i16, scale: 0.001, unit: "1"}
+      - {name: m3, type: i16, scale: 0.001, unit: "1", doc: "moteur 3 — réservé, ignoré tant qu'il n'est pas câblé"}
+
+  - name: MOTOR_ENABLE
+    id: 0x111
+    sender: HOST
+    rate_hz: 0
+    impl: bench
+    doc: >
+      Autorise ou interdit chaque moteur. Au démarrage, tout est interdit :
+      aucune consigne ne sort avant une MOTOR_ENABLE explicite. ⚠️ magic 0xEB —
+      une trame corrompue ne doit pas pouvoir mettre une roue en marche.
+    fields:
+      - {name: enable_mask, type: u8, doc: "b0..b3 : moteur 0..3 autorisé"}
+      - {name: magic,       type: u8, doc: "0xEB"}
+
+  - name: MOTOR_STATE
+    id: 0x1A0
+    sender: MOTION_FRONT
+    rate_hz: 10
+    impl: bench
+    doc: >
+      Ce que le nœud applique réellement, pour l'afficher en face de ce qui
+      a été demandé. `applied_m*` est la consigne après chien de garde et
+      masque d'autorisation, en centièmes : si elle diffère de la commande,
+      c'est qu'une sécurité est intervenue, et `flags` dit laquelle.
+    fields:
+      - {name: applied_m0,  type: i8, scale: 0.01, unit: "1"}
+      - {name: applied_m1,  type: i8, scale: 0.01, unit: "1"}
+      - {name: applied_m2,  type: i8, scale: 0.01, unit: "1"}
+      - {name: applied_m3,  type: i8, scale: 0.01, unit: "1"}
+      - {name: enable_mask, type: u8}
+      - {name: flags,       type: u8, enum: motor_flag}
+      - {name: cmd_age_ms,  type: u16, unit: ms, doc: "Âge de la dernière MOTOR_CMD, saturé à 65535"}
   - name: POWER
     id: 0x200
     sender: SAFETY
@@ -516,7 +588,7 @@ frames:
     id: 0x702
     sender: MOTION_FRONT
     rate_hz: 10
-    impl: planned
+    impl: bench
     like: HEARTBEAT_SAFETY
 
   - name: HEARTBEAT_MOTION_REAR

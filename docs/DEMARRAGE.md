@@ -30,11 +30,12 @@ veut presque toujours dire ça, pas un paquet absent.
 |---|---|---|
 | **IMU** | `ros2 launch retriever_bringup bench_imu.launch.py device:=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0` | `ros2 topic hz /imu/data` → ~100 Hz |
 | **Lidar** | `ros2 launch retriever_bringup bench_lidar.launch.py` | `ros2 topic hz /scan` → 6–12 Hz |
-| **Les deux** | le banc IMU d'abord, puis le lidar avec `foxglove:=false` | un seul pont Foxglove par port 8765 |
+| **Moteurs** | `ros2 launch retriever_bringup bench_motors.launch.py device:=/dev/serial/by-id/<second-ESP32>` | Foxglove : ARMER → consigne → STOP, `roues en l'air` |
+| **Plusieurs** | le premier banc normalement, les suivants avec `foxglove:=false` | un seul pont Foxglove par port 8765 |
 
 Foxglove Studio, depuis le Mac : **Open connection** → `ws://<adresse-ubuntu>:8765`,
 puis menu des mises en page → **Import from file…** → `docs/foxglove/bench_imu.json`
-ou `bench_lidar.json`.
+ou `bench_lidar.json` ou `bench_motors.json`.
 
 Sans ROS, pour savoir si l'ESP32 parle, depuis n'importe quelle machine :
 
@@ -531,6 +532,134 @@ essayer au hasard fait perdre plus de temps que de les parcourir dans l'ordre.
   c'est `retriever_description` qui décrit le montage, et lui seul.
 - **`ignore_array`** — les secteurs où le lidar voit le châssis, à mesurer une
   fois monté.
+
+---
+
+## 4 quater. Les moteurs — trois ZS-X11H depuis Foxglove
+
+Le banc B2. Un **second** ESP32 DevKitC, avec le firmware `esp32_motion`,
+pilote les variateurs ; le calculateur lui envoie les consignes qu'on tape dans
+Foxglove. Pas d'URDF, pas de vitesse en rad/s, pas de retour Hall : un rapport
+cyclique signé par moteur, et ce que le nœud applique vraiment en retour.
+
+⚠️ **ROUES EN L'AIR.** Tout ce qui suit fait tourner un moteur de trottinette.
+
+### Câblage d'un variateur
+
+Le ZS-X11H (dossier §Z) attend une tension analogique sur VR, 0–5 V. L'ESP32
+n'a pas de CNA utilisable en 5 V : on fait un PWM à 20 kHz et on le lisse.
+
+```
+ESP32 GPIO(pwm) ──[ 1 kΩ ]──┬── VR du variateur
+                            │
+                          2,2 µF
+                            │
+GND ESP32 ──────────────────┴── GND variateur (⚠️ commun obligatoire)
+```
+
+- Pleine échelle ≈ 3,0 V, soit environ 60 % de la vitesse max. Suffisant pour
+  le banc ; sur le PCB, un ampli op ou un CNA 5 V donneront le reste.
+- **DIR** et **STOP** sont en collecteur ouvert (open-drain) : l'ESP32 tire à
+  la masse ou laisse flotter, la carte a ses propres résistances de rappel.
+  Aucun 5 V ne remonte vers l'ESP32.
+- **STOP au niveau bas = roue libre.** Le firmware le met bas avant de couper
+  le PWM, et haut après l'avoir relancé.
+- **EL / BRAKE** n'est pas câblé sur le banc (frein actif haut — à voir sur le
+  PCB, avec sa consommation).
+
+| Moteur | PWM → VR | DIR | STOP |
+|---|---|---|---|
+| m0 | GPIO 25 | GPIO 26 | GPIO 27 |
+| m1 | GPIO 32 | GPIO 33 | GPIO 14 |
+| m2 | GPIO 18 | GPIO 19 | GPIO 21 |
+| m3 (réservé) | GPIO 22 | GPIO 23 | GPIO 13 |
+
+La table est dans `firmware/esp32_motion/main/board_config.h` — c'est le seul
+endroit où un numéro de broche est écrit.
+
+### Ajouter le quatrième moteur
+
+1. Câbler la ligne m3 du tableau (trois fils + RC + masse).
+2. `idf.py menuconfig` → **Retriever → Moteurs (banc) → Nombre de moteurs câblés** : 4.
+   Ou dans `sdkconfig.defaults` : `CONFIG_RETRIEVER_MOTOR_COUNT=4`.
+3. `idf.py build flash`.
+
+C'est tout. Le protocole (`MOTOR_CMD` porte déjà quatre consignes), les
+messages ROS (`duty[4]`), la mise en page Foxglove et le pont ne changent pas :
+armer avec `enable_mask: 15` au lieu de 7.
+
+### Construire et flasher le second ESP32
+
+```bash
+. ~/esp/esp-idf-v5.5/export.sh
+cd retriever/firmware/esp32_motion
+idf.py set-target esp32
+idf.py build
+idf.py -p <port> flash
+```
+
+Avec deux DevKitC branchées, `ls /dev/cu.usbserial-*` en montre deux :
+débrancher l'une pour savoir laquelle est laquelle, la première fois.
+
+### Vérifier, sans ROS
+
+Depuis le Mac, directement sur le port de l'ESP32 MOTION :
+
+```bash
+python3 tools/motor_bench.py --device /dev/cu.usbserial-XXXX             # observe, envoie des zéros
+python3 tools/motor_bench.py --device /dev/cu.usbserial-XXXX --enable 7  # arme m0..m2
+python3 tools/motor_bench.py --device /dev/cu.usbserial-XXXX --enable 7 --duty 0.2 0 0 0
+```
+
+Ce qu'on doit voir :
+
+1. Un battement `MOTION_FRONT`, hash identique à celui du dépôt.
+2. `drapeaux=NEVER_ARMED` au démarrage → `ENABLED` après `--enable`.
+3. Avec `--duty`, `appliquee` monte vers la consigne en une demi-seconde
+   (pente `RETRIEVER_MOTOR_SLEW_PER_S`), la roue m0 tourne, et tout revient
+   à zéro à la fin des 3 s ou au Ctrl-C.
+4. Débrancher l'USB pendant que la roue tourne : elle s'arrête sous 500 ms.
+   C'est le chien de garde du firmware, et c'est le test qui compte.
+
+### Lancer, avec ROS
+
+Sur le calculateur, après `git pull` et `colcon build --symlink-install` :
+
+```bash
+ros2 launch retriever_bringup bench_motors.launch.py device:=/dev/serial/by-id/<le-second-ESP32>
+```
+
+Puis Foxglove → `docs/foxglove/bench_motors.json`. La séquence est décrite dans
+`docs/foxglove/README.md` : **ARMER → consigne → STOP**.
+
+Sans Foxglove, depuis un second terminal :
+
+```bash
+ros2 topic pub --once /retriever/motor_enable retriever_msgs/msg/MotorEnable "{enable_mask: 7}"
+ros2 topic pub --rate 10 /retriever/motor_command retriever_msgs/msg/MotorCommand "{duty: [0.2, 0.0, 0.0, 0.0]}"
+ros2 topic echo /retriever/motor_state
+ros2 topic pub --once /retriever/estop std_msgs/msg/Empty "{}"
+```
+
+### Les trois chiens de garde, pour ne pas les confondre
+
+| Où | Délai | Ce qu'il couvre |
+|---|---|---|
+| Firmware, `RETRIEVER_MOTOR_CMD_TIMEOUT_MS` | 500 ms sans `MOTOR_CMD` | câble arraché, PC planté, pont tué |
+| Pont, `motors.command_timeout_s` | 10 s sans message ROS | panneau Foxglove abandonné, script mort |
+| Nœud, `MOTOR_ENABLE` | jamais armé au démarrage | un reset de l'ESP32 ne relance rien tout seul |
+
+### Ce qui n'est pas encore fait
+
+- **Retour des capteurs Hall.** La carte gère seule son encodeur pour l'instant ;
+  récupérer les impulsions (vitesse réelle, odométrie) est l'étape suivante,
+  avec `FB_WHEELS_*` déjà prévues au protocole.
+- **La consigne en rad/s** et `ros2_control` : après le retour Hall.
+- **Le 5 V sur VR.** Le RC plafonne à ~3 V ; le PCB devra fournir la pleine
+  échelle.
+- **EL / BRAKE** : non câblé, comportement à qualifier.
+- **Un téléop** qui republie en continu (clavier ou manette), pour remplacer
+  le délai de 10 s du panneau Publish par les 0,5 s d'un vrai pilotage.
 
 ---
 

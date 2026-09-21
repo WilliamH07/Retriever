@@ -28,8 +28,17 @@ $(BUILD)/test_protocol: test_protocol.c | $(BUILD)
 $(BUILD)/test_framing: test_framing.c $(SRCS_FRAMING) | $(BUILD)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
 
-$(BUILD)/emit_vectors: emit_vectors.c $(SRCS_FRAMING) | $(BUILD)
-	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@
+# ⚠️ L'en-tête généré est une dépendance EXPLICITE. Sans elle, un changement de
+# protocole ne reconstruit pas ce binaire, la comparaison C ↔ Python se fait
+# contre l'ANCIEN protocole et signale des dizaines d'échecs qui n'en sont pas —
+# ou, pire, passe alors que les deux côtés ont divergé. Constaté le 20 septembre
+# 2026 en ajoutant les trames moteur.
+PROTO_HDR := ../protocol/generated/retriever_protocol.h
+
+$(BUILD)/emit_vectors: emit_vectors.c $(SRCS_FRAMING) $(PROTO_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) $(INCLUDES) emit_vectors.c $(SRCS_FRAMING) -o $@
+
+$(BUILD)/test_protocol: $(PROTO_HDR)
 
 vectors: $(BUILD)/emit_vectors
 	@$(BUILD)/emit_vectors

@@ -10,6 +10,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -78,7 +79,7 @@ ament_target_dependencies(${PROJECT_NAME} PUBLIC
 add_executable(link_bridge src/bridge_node.cpp)
 target_link_libraries(link_bridge ${PROJECT_NAME})
 ament_target_dependencies(link_bridge
-  rclcpp sensor_msgs geometry_msgs visualization_msgs diagnostic_msgs
+  rclcpp std_msgs sensor_msgs geometry_msgs visualization_msgs diagnostic_msgs
   diagnostic_updater tf2 tf2_ros retriever_msgs retriever_protocol)
 
 install(TARGETS ${PROJECT_NAME} retriever_framing

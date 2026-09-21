@@ -1,0 +1,49 @@
+# Paramètres du banc B2 — trois (puis quatre) variateurs ZS-X11H depuis Foxglove.
+#
+# Un second ESP32 DevKitC (firmware/esp32_motion) sur un second port série.
+# Ce pont ne décode pas d'IMU et n'en attend pas : il parle au nœud
+# MOTION_FRONT, et à lui seul.
+
+/retriever_motion_bridge:
+  ros__parameters:
+
+    transport: "serial"
+    serial:
+      # ⚠️ Avec deux DevKitC branchées, /dev/ttyUSB0 et /dev/ttyUSB1 changent
+      # d'ordre d'un branchement à l'autre. Préférer /dev/serial/by-id/… ou
+      # une règle udev (docs/DEMARRAGE.md §4 quater).
+      device: "/dev/ttyUSB1"
+      baudrate: 921600
+      reset_on_open: true
+
+    can:
+      interface: "can0"
+
+    link:
+      peer: "motion_front"
+      latency_offset_ms: 1.57
+      ping_period_s: 1.0
+      time_sync: true
+
+    imu:
+      enabled: false
+
+    motors:
+      enabled: true
+      # Cadence de MOTOR_CMD vers l'ESP32. Le firmware coupe après
+      # RETRIEVER_MOTOR_CMD_TIMEOUT_MS (500 ms) sans trame : 50 Hz laisse
+      # 25 trames de marge.
+      rate_hz: 50.0
+      # Au-delà de cet âge sans message sur retriever/motor_command, le pont
+      # envoie des zéros. Le panneau « Publish » de Foxglove n'émet qu'au clic,
+      # sans répétition : 10 s laissent le temps de regarder la roue tourner,
+      # puis elle s'arrête toute seule. Avec un script qui republie en continu
+      # (tools/motor_bench.py, ou un futur téléop), redescendre à 0.5.
+      # ⚠️ Ce délai ne remplace pas le chien de garde du firmware (500 ms sans
+      # trame) : il ne couvre que le cas « le pont tourne, plus personne ne lui
+      # parle ».
+      command_timeout_s: 10.0
+
+    bench:
+      publish_tf: false
+      publish_marker: false

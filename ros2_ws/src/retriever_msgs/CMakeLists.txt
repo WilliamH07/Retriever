@@ -9,6 +9,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ImuStatus.msg"
   "msg/LinkStatus.msg"
   "msg/NodeStatus.msg"
+  "msg/MotorCommand.msg"
+  "msg/MotorEnable.msg"
+  "msg/MotorState.msg"
   DEPENDENCIES std_msgs
 )
 

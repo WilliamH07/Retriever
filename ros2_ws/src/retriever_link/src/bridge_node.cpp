@@ -18,11 +18,14 @@
 // ===========================================================================
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -41,7 +44,11 @@
 #include "retriever_link/socketcan_transport.hpp"
 #include "retriever_msgs/msg/imu_status.hpp"
 #include "retriever_msgs/msg/link_status.hpp"
+#include "retriever_msgs/msg/motor_command.hpp"
+#include "retriever_msgs/msg/motor_enable.hpp"
+#include "retriever_msgs/msg/motor_state.hpp"
 #include "retriever_msgs/msg/node_status.hpp"
+#include "std_msgs/msg/empty.hpp"
 
 namespace retriever::link
 {
@@ -70,6 +77,10 @@ public:
         std::chrono::duration<double>(ping_period_s_), [this] { send_ping(); });
     }
     status_timer_ = create_wall_timer(500ms, [this] { publish_status(); });
+
+    if (motors_enabled_) {
+      build_motor_side();
+    }
 
     RCLCPP_INFO(
       get_logger(), "pont pret sur %s, protocole %s (0x%08X)",
@@ -115,6 +126,25 @@ private:
     latency_offset_ms_ = declare_parameter<double>("link.latency_offset_ms", 1.5);
     ping_period_s_ = declare_parameter<double>("link.ping_period_s", 1.0);
     time_sync_enabled_ = declare_parameter<bool>("link.time_sync", true);
+    // Quel microcontrôleur est au bout de CE lien. Un pont par liaison série :
+    // le banc IMU parle au nœud SAFETY, le banc moteurs au nœud MOTION_FRONT.
+    // Ça fixe la cible des pings, le nom du diagnostic et l'identifiant
+    // matériel — pas le décodage, qui accepte toutes les trames connues.
+    peer_ = declare_parameter<std::string>("link.peer", "safety");
+    if (peer_ == "safety") {
+      peer_node_id_ = RT_NODE_ID_SAFETY;
+    } else if (peer_ == "motion_front") {
+      peer_node_id_ = RT_NODE_ID_MOTION_FRONT;
+    } else {
+      throw std::runtime_error("link.peer doit valoir 'safety' ou 'motion_front'");
+    }
+    imu_enabled_ = declare_parameter<bool>("imu.enabled", peer_ == "safety");
+
+    // Banc moteurs (§Z). Désactivé par défaut : un pont IMU ne doit pas pouvoir
+    // émettre une MOTOR_CMD, même par erreur de câblage.
+    motors_enabled_ = declare_parameter<bool>("motors.enabled", peer_ == "motion_front");
+    motors_rate_hz_ = declare_parameter<double>("motors.rate_hz", 50.0);
+    motors_cmd_timeout_s_ = declare_parameter<double>("motors.command_timeout_s", 0.5);
 
     noise_.orientation_stddev_rp =
       declare_parameter<double>("imu.orientation_stddev_rp", noise_.orientation_stddev_rp);
@@ -189,10 +219,124 @@ private:
 
   void build_diagnostics()
   {
-    diagnostics_.setHardwareID("retriever-safety");
+    diagnostics_.setHardwareID("retriever-" + peer_);
     diagnostics_.add("Liaison", this, &BridgeNode::diagnose_link);
-    diagnostics_.add("Capteur inertiel", this, &BridgeNode::diagnose_imu);
-    diagnostics_.add("Noeud SAFETY", this, &BridgeNode::diagnose_node);
+    if (imu_enabled_) {
+      diagnostics_.add("Capteur inertiel", this, &BridgeNode::diagnose_imu);
+    }
+    if (motors_enabled_) {
+      diagnostics_.add("Moteurs", this, &BridgeNode::diagnose_motors);
+    }
+    std::string node_name = peer_;
+    std::transform(node_name.begin(), node_name.end(), node_name.begin(), ::toupper);
+    diagnostics_.add("Noeud " + node_name, this, &BridgeNode::diagnose_node);
+  }
+
+  // -----------------------------------------------------------------------
+  //  Banc moteurs : ROS -> trames
+  // -----------------------------------------------------------------------
+  void build_motor_side()
+  {
+    const auto latched = rclcpp::QoS(1).transient_local().reliable();
+    motor_state_pub_ =
+      create_publisher<retriever_msgs::msg::MotorState>("retriever/motor_state", latched);
+
+    // Les commandes arrivent d'un panneau Foxglove (Publish) ou d'un script :
+    // fiable, profondeur 1, la dernière consigne est la seule qui compte.
+    motor_cmd_sub_ = create_subscription<retriever_msgs::msg::MotorCommand>(
+      "retriever/motor_command", rclcpp::QoS(1).reliable(),
+      [this](const retriever_msgs::msg::MotorCommand & m) { on_motor_command(m); });
+    motor_enable_sub_ = create_subscription<retriever_msgs::msg::MotorEnable>(
+      "retriever/motor_enable", rclcpp::QoS(1).reliable(),
+      [this](const retriever_msgs::msg::MotorEnable & m) { on_motor_enable(m); });
+    estop_sub_ = create_subscription<std_msgs::msg::Empty>(
+      "retriever/estop", rclcpp::QoS(1).reliable(),
+      [this](const std_msgs::msg::Empty &) { send_estop(); });
+
+    // Le nœud coupe tout seul après RETRIEVER_MOTOR_CMD_TIMEOUT_MS sans trame.
+    // Ce minuteur garantit qu'on lui en envoie une en continu tant que le pont
+    // tourne — et qu'elle vaut zéro si le panneau, lui, s'est tu.
+    motor_timer_ = create_wall_timer(
+      std::chrono::duration<double>(1.0 / std::max(motors_rate_hz_, 1.0)),
+      [this] { send_motor_cmd(); });
+
+    RCLCPP_WARN(
+      get_logger(),
+      "banc moteurs actif : MOTOR_CMD emise a %.0f Hz, consignes a zero apres %.2f s "
+      "sans message sur retriever/motor_command. ROUES EN L'AIR.",
+      motors_rate_hz_, motors_cmd_timeout_s_);
+  }
+
+  void on_motor_command(const retriever_msgs::msg::MotorCommand & m)
+  {
+    std::lock_guard<std::mutex> lock(motor_mutex_);
+    for (std::size_t i = 0; i < 4; ++i) {
+      const float d = std::isfinite(m.duty[i]) ? m.duty[i] : 0.0F;
+      motor_duty_[i] = std::clamp(d, -1.0F, 1.0F);
+    }
+    motor_cmd_rx_ = std::chrono::steady_clock::now();
+    have_motor_cmd_ = true;
+  }
+
+  void on_motor_enable(const retriever_msgs::msg::MotorEnable & m)
+  {
+    protocol::MotorEnable e{};
+    e.enable_mask = m.enable_mask;
+    e.magic = 0xEBU;
+    transport_->send(protocol::pack(e));
+    RCLCPP_INFO(get_logger(), "MOTOR_ENABLE masque 0x%02X", m.enable_mask);
+  }
+
+  void send_estop()
+  {
+    protocol::EstopRequest r{};
+    r.magic = 0xE5U;
+    transport_->send(protocol::pack(r));
+    {
+      std::lock_guard<std::mutex> lock(motor_mutex_);
+      motor_duty_ = {0.0F, 0.0F, 0.0F, 0.0F};
+    }
+    RCLCPP_WARN(get_logger(), "ESTOP_REQUEST emis — re-armer par retriever/motor_enable");
+  }
+
+  void send_motor_cmd()
+  {
+    protocol::MotorCmd c{};
+    bool stale = true;
+    {
+      std::lock_guard<std::mutex> lock(motor_mutex_);
+      const double age =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - motor_cmd_rx_).count();
+      stale = !have_motor_cmd_ || age > motors_cmd_timeout_s_;
+      if (!stale) {
+        c.m0 = motor_duty_[0];
+        c.m1 = motor_duty_[1];
+        c.m2 = motor_duty_[2];
+        c.m3 = motor_duty_[3];
+      }
+    }
+    motor_cmd_stale_.store(stale);
+    transport_->send(protocol::pack(c));
+  }
+
+  void on_motor_state(const protocol::Frame & f)
+  {
+    const auto v = protocol::unpack_motor_state(f);
+    if (!v || !motor_state_pub_) {
+      return;
+    }
+    retriever_msgs::msg::MotorState msg;
+    msg.header.stamp = now();
+    msg.applied = {v->applied_m0, v->applied_m1, v->applied_m2, v->applied_m3};
+    msg.enable_mask = v->enable_mask;
+    msg.flags = v->flags;
+    msg.cmd_age_ms = v->cmd_age_ms;
+    motor_state_pub_->publish(msg);
+
+    last_motor_flags_.store(v->flags);
+    last_motor_mask_.store(v->enable_mask);
+    last_motor_age_ms_.store(v->cmd_age_ms);
+    last_motor_state_ns_.store(now().nanoseconds(), std::memory_order_relaxed);
   }
 
   // -----------------------------------------------------------------------
@@ -218,7 +362,9 @@ private:
       case protocol::kImuMagId: on_mag(f); return;
       case protocol::kImuStatusId: on_imu_status(f); return;
       case protocol::kImuCalId: on_imu_cal(f); return;
-      case protocol::kHeartbeatSafetyId: on_heartbeat(f); return;
+      case protocol::kHeartbeatSafetyId: on_heartbeat_safety(f); return;
+      case protocol::kHeartbeatMotionFrontId: on_heartbeat_motion_front(f); return;
+      case protocol::kMotorStateId: on_motor_state(f); return;
       case protocol::kLinkPongId: on_pong(f); return;
       case protocol::kLogId: on_log(f); return;
       default: break;
@@ -410,17 +556,44 @@ private:
   // -----------------------------------------------------------------------
   //  Service
   // -----------------------------------------------------------------------
-  void on_heartbeat(const protocol::Frame & f)
+  void on_heartbeat_safety(const protocol::Frame & f)
   {
     const auto v = protocol::unpack_heartbeat_safety(f);
     if (!v) {
       return;
     }
+    on_heartbeat(
+      retriever_msgs::msg::NodeStatus::NODE_SAFETY, v->state, v->uptime_s, v->err_count,
+      v->protocol_hash);
+  }
+
+  void on_heartbeat_motion_front(const protocol::Frame & f)
+  {
+    const auto v = protocol::unpack_heartbeat_motion_front(f);
+    if (!v) {
+      return;
+    }
+    on_heartbeat(
+      retriever_msgs::msg::NodeStatus::NODE_MOTION_FRONT, v->state, v->uptime_s, v->err_count,
+      v->protocol_hash);
+  }
+
+  void on_heartbeat(
+    std::uint8_t node_id, std::uint8_t state, std::uint16_t uptime_s, std::uint8_t err_count,
+    std::uint32_t protocol_hash)
+  {
+    if (node_id != peer_node_id_) {
+      // Un battement d'un autre nœud sur ce lien : possible plus tard sur le
+      // bus CAN, pas sur une liaison série point à point. On le compte comme
+      // inconnu plutôt que de mélanger deux nœuds dans un seul état.
+      unknown_frames_++;
+      return;
+    }
     const rclcpp::Time received = now();
     last_heartbeat_ns_.store(received.nanoseconds(), std::memory_order_relaxed);
-    node_hash_.store(v->protocol_hash);
+    node_hash_.store(protocol_hash);
 
-    if (v->protocol_hash != protocol::kHash && !hash_reported_) {
+    if (protocol_hash != protocol::kHash && !hash_reported_) {
       hash_reported_ = true;
       // Bruyant et explicite : c'est le mode de défaillance qui fait perdre le
       // plus de temps, et il est parfaitement diagnosticable en une ligne.
@@ -429,16 +602,16 @@ private:
         "DIVERGENCE DE PROTOCOLE — noeud 0x%08X, calculateur 0x%08X. "
         "Le firmware et ce paquet ne viennent pas du meme protocol.yaml. "
         "Reflasher le noeud, ou rebatir le workspace.",
-        v->protocol_hash, protocol::kHash);
+        protocol_hash, protocol::kHash);
     }
 
     retriever_msgs::msg::NodeStatus msg;
     msg.header.stamp = received;
-    msg.node_id = retriever_msgs::msg::NodeStatus::NODE_SAFETY;
-    msg.state = v->state;
-    msg.uptime_s = v->uptime_s;
-    msg.error_count = v->err_count;
-    msg.protocol_hash = v->protocol_hash;
+    msg.node_id = node_id;
+    msg.state = state;
+    msg.uptime_s = uptime_s;
+    msg.error_count = err_count;
+    msg.protocol_hash = protocol_hash;
     msg.heartbeat_age_s = 0.0F;
     {
       std::lock_guard<std::mutex> lock(node_status_mutex_);
@@ -515,7 +688,7 @@ private:
   void send_ping()
   {
     protocol::LinkPing ping{};
-    ping.target = RT_NODE_ID_SAFETY;
+    ping.target = peer_node_id_;
     ping.seq = ping_seq_++;
     ping.t_tx_us = host_micros();
     transport_->send(protocol::pack(ping));
@@ -710,6 +883,44 @@ private:
     }
   }
 
+  void diagnose_motors(diagnostic_updater::DiagnosticStatusWrapper & st)
+  {
+    const std::uint8_t flags = last_motor_flags_.load();
+    const std::int64_t st_ns = last_motor_state_ns_.load(std::memory_order_relaxed);
+    const double age =
+      st_ns == 0 ? 1e9 : static_cast<double>(now().nanoseconds() - st_ns) * 1e-9;
+    st.addf("masque d'activation", "0x%02X", last_motor_mask_.load());
+    st.addf("drapeaux", "0x%02X", flags);
+    st.add("age de la commande cote noeud ms", static_cast<int>(last_motor_age_ms_.load()));
+    st.add("consigne ROS perimee (zeros envoyes)", motor_cmd_stale_.load());
+    st.add("age du MOTOR_STATE s", age);
+
+    if (age > 1.0) {
+      st.summary(
+        diagnostic_msgs::msg::DiagnosticStatus::ERROR, "aucun MOTOR_STATE depuis plus d'une seconde");
+    } else if (flags & RT_MOTOR_FLAG_ESTOP) {
+      st.summary(
+        diagnostic_msgs::msg::DiagnosticStatus::ERROR,
+        "arret d'urgence logiciel actif — re-armer par retriever/motor_enable");
+    } else if (flags & RT_MOTOR_FLAG_NEVER_ARMED) {
+      st.summary(
+        diagnostic_msgs::msg::DiagnosticStatus::WARN,
+        "moteurs jamais armes — publier retriever/motor_enable");
+    } else if (flags & RT_MOTOR_FLAG_CMD_TIMEOUT) {
+      st.summary(
+        diagnostic_msgs::msg::DiagnosticStatus::WARN,
+        "le noeud ne recoit pas de MOTOR_CMD — consignes a zero");
+    } else if (!(flags & RT_MOTOR_FLAG_ENABLED)) {
+      st.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "aucun moteur autorise");
+    } else if (motor_cmd_stale_.load()) {
+      st.summary(
+        diagnostic_msgs::msg::DiagnosticStatus::OK,
+        "armes, en attente de consigne sur retriever/motor_command");
+    } else {
+      st.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "moteurs commandes");
+    }
+  }
+
   void diagnose_node(diagnostic_updater::DiagnosticStatusWrapper & st)
   {
     const std::int64_t hb_ns = last_heartbeat_ns_.load(std::memory_order_relaxed);
@@ -738,6 +949,12 @@ private:
   double latency_offset_ms_ = 1.5;
   double ping_period_s_ = 1.0;
   bool time_sync_enabled_ = true;
+  std::string peer_;
+  std::uint8_t peer_node_id_ = RT_NODE_ID_SAFETY;
+  bool imu_enabled_ = true;
+  bool motors_enabled_ = false;
+  double motors_rate_hz_ = 50.0;
+  double motors_cmd_timeout_s_ = 0.5;
   double expected_rate_hz_ = 100.0;
   bool bench_tf_ = false;
   std::string bench_parent_frame_;
@@ -752,6 +969,21 @@ private:
   rclcpp::Publisher<retriever_msgs::msg::LinkStatus>::SharedPtr link_status_pub_;
   rclcpp::Publisher<retriever_msgs::msg::NodeStatus>::SharedPtr node_status_pub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+  rclcpp::Publisher<retriever_msgs::msg::MotorState>::SharedPtr motor_state_pub_;
+  rclcpp::Subscription<retriever_msgs::msg::MotorCommand>::SharedPtr motor_cmd_sub_;
+  rclcpp::Subscription<retriever_msgs::msg::MotorEnable>::SharedPtr motor_enable_sub_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr estop_sub_;
+  rclcpp::TimerBase::SharedPtr motor_timer_;
+
+  std::mutex motor_mutex_;
+  std::array<float, 4> motor_duty_{0.0F, 0.0F, 0.0F, 0.0F};
+  std::chrono::steady_clock::time_point motor_cmd_rx_{};
+  bool have_motor_cmd_ = false;
+  std::atomic<bool> motor_cmd_stale_{true};
+  std::atomic<std::uint8_t> last_motor_flags_{0};
+  std::atomic<std::uint8_t> last_motor_mask_{0};
+  std::atomic<std::uint16_t> last_motor_age_ms_{0};
+  std::atomic<std::int64_t> last_motor_state_ns_{0};
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   rclcpp::TimerBase::SharedPtr time_sync_timer_;

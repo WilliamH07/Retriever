@@ -2,7 +2,7 @@
 
 # Table des trames — protocole Retriever
 
-Version **0.1.0** · hash `0xE8391C47` · charge utile ≤ 8 octets · entiers petit-boutiste.
+Version **0.1.0** · hash `0x670192A7` · charge utile ≤ 8 octets · entiers petit-boutiste.
 
 | ID | Trame | Émetteur | DLC | Hz | État | Contenu |
 |---|---|---|:-:|:-:|:-:|---|
@@ -14,6 +14,9 @@ Version **0.1.0** · hash `0xE8391C47` · charge utile ≤ 8 octets · entiers p
 | `0x181` | `FB_WHEELS_REAR` | MOTION_REAR | 8 | 50 | planned | vel_left:i16×0.001, vel_right:i16×0.001, dpos_left:i16, dpos_right:i16 |
 | `0x190` | `MOT_STATUS_FRONT` | MOTION_FRONT | 4 | 10 | planned | flags_left:u8, flags_right:u8, temp_c:i8, seq:u8 |
 | `0x191` | `MOT_STATUS_REAR` | MOTION_REAR | 4 | 10 | planned | flags_left:u8, flags_right:u8, temp_c:i8, seq:u8 |
+| `0x110` | `MOTOR_CMD` | HOST | 8 | 50 | bench | m0:i16×0.001, m1:i16×0.001, m2:i16×0.001, m3:i16×0.001 |
+| `0x111` | `MOTOR_ENABLE` | HOST | 2 | évt | bench | enable_mask:u8, magic:u8 |
+| `0x1A0` | `MOTOR_STATE` | MOTION_FRONT | 8 | 10 | bench | applied_m0:i8×0.01, applied_m1:i8×0.01, applied_m2:i8×0.01, applied_m3:i8×0.01, enable_mask:u8, flags:u8, cmd_age_ms:u16 |
 | `0x200` | `POWER` | SAFETY | 8 | 20 | planned | v_bus:u16×0.001, v_pack:u16×0.001, i_bus:i16×0.001, flags:u8, seq:u8 |
 | `0x201` | `BATTERY` | SAFETY | 8 | 2 | planned | soc_pct:u8, temp_c:i8, current_ma:i32, cycles:u16 |
 | `0x202` | `CELLS_A` | SAFETY | 8 | 0.2 | planned | cell1:u16, cell2:u16, cell3:u16, cell4:u16 |
@@ -34,15 +37,15 @@ Version **0.1.0** · hash `0xE8391C47` · charge utile ≤ 8 octets · entiers p
 | `0x331` | `LINK_PONG` | SAFETY | 7 | évt | bench | source:u8, seq:u16, t_tx_us:u32 |
 | `0x7F0` | `LOG` | SAFETY | 8 | évt | bench | header:u8, c0:u8, c1:u8, c2:u8, c3:u8, c4:u8, c5:u8, c6:u8 |
 | `0x701` | `HEARTBEAT_SAFETY` | SAFETY | 8 | 10 | bench | state:u8, uptime_s:u16, err_count:u8, protocol_hash:u32 |
-| `0x702` | `HEARTBEAT_MOTION_FRONT` | MOTION_FRONT | 8 | 10 | planned | state:u8, uptime_s:u16, err_count:u8, protocol_hash:u32 |
+| `0x702` | `HEARTBEAT_MOTION_FRONT` | MOTION_FRONT | 8 | 10 | bench | state:u8, uptime_s:u16, err_count:u8, protocol_hash:u32 |
 | `0x703` | `HEARTBEAT_MOTION_REAR` | MOTION_REAR | 8 | 10 | planned | state:u8, uptime_s:u16, err_count:u8, protocol_hash:u32 |
 
 ## Charge du lien
 
 Calculé sur les cadences déclarées ci-dessus, hors trames événementielles.
 
-- **704.6 trames/s** au total.
-- **CAN 500 kbit/s** : ≈ 77.9 kbit/s, soit **15.6 %** du bus (bourrage de bits non compté, majorer d'environ 15 %).
-- **Série** : ≈ 9.6 ko/s de charge utile encadrée. À 921 600 bauds 8N1 (92 160 o/s) → **10.4 %**. À 115 200 bauds → **83.0 %**.
+- **764.6 trames/s** au total.
+- **CAN 500 kbit/s** : ≈ 84.8 kbit/s, soit **17.0 %** du bus (bourrage de bits non compté, majorer d'environ 15 %).
+- **Série** : ≈ 10.4 ko/s de charge utile encadrée. À 921 600 bauds 8N1 (92 160 o/s) → **11.3 %**. À 115 200 bauds → **90.3 %**.
 
 Le second chiffre est la raison pour laquelle le banc tourne à 921 600 et non à 115 200 : voir §AC.3.
