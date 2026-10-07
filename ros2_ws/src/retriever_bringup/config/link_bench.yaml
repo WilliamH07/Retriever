@@ -1,0 +1,69 @@
+# Paramètres du banc B1 — l'IMU jusqu'à ROS.
+#
+# Les valeurs marquées 📐 sont des ordres de grandeur posés faute de mesure.
+# Elles ne sont PAS des spécifications, et la recette du banc dit comment les
+# remplacer par des mesures. Une covariance inventée qui traîne trois mois est
+# une dette qui se paie au moment où l'EKF se met à dériver sans raison.
+
+/retriever_link_bridge:
+  ros__parameters:
+
+    transport: "serial"
+    serial:
+      device: "/dev/ttyUSB0"
+      baudrate: 921600
+      # ⚠️ Remet l'ESP32 en mode exécution à l'ouverture du port. Sur une
+      # DevKitC, DTR et RTS pilotent IO0 et EN par le circuit d'auto-reset :
+      # sans cette remise à zéro explicite, la carte peut démarrer en mode
+      # téléchargement, où elle attend un téléversement à 115200 et reste
+      # muette pour un hôte qui lit à 921600 — sans erreur nulle part.
+      reset_on_open: true
+
+    can:
+      interface: "can0"
+
+    # Repère du capteur. Le placement de ce repère par rapport au robot est
+    # décrit dans l'URDF, jamais ici.
+    frame_id: "imu_link"
+
+    link:
+      # ✅ MESURÉ au banc, 11 septembre 2026 : aller-retour médian 3,14 ms,
+      # max 3,88 ms, sur 100 échantillons à 921600 bauds (tools/link_monitor.py).
+      # L'aller simple est la moitié, et c'est lui qu'on retranche à
+      # l'horodatage. À refaire si le débit, le transport ou la longueur du
+      # câble changent — et entièrement à refaire en CAN.
+      latency_offset_ms: 1.57
+      ping_period_s: 1.0
+      time_sync: true
+
+    imu:
+      expected_rate_hz: 100.0
+
+      # ✅ Datasheet BNO08x : erreur dynamique 3,5°, statique 2,0°.
+      # 3,5° = 0,0611 rad.
+      orientation_stddev_rp: 0.0611
+
+      # ✅ §I.2 du dossier : « en pratique typiquement 5° ». On ne croit pas le
+      # capteur en dessous de cette valeur, même quand il s'annonce meilleur.
+      orientation_stddev_yaw_min: 0.0873
+
+      # 📐 Lacet quand le capteur n'en fournit pas d'estimation — game rotation
+      # vector. 1 rad ≈ 57° : autant dire inconnu, ce qui est exactement le
+      # message à faire passer à l'EKF.
+      orientation_stddev_yaw_unreported: 1.0
+
+      # 📐 À REMPLACER par la mesure : robot immobile, 60 s d'enregistrement,
+      # écart type de chaque axe. Procédure dans la recette B1.
+      angular_velocity_stddev: 0.01
+      linear_acceleration_stddev: 0.1
+      magnetic_field_stddev: 2.0e-6
+
+      use_reported_accuracy: true
+
+    # ⚠️ Aides de banc UNIQUEMENT. Sur le robot, c'est l'EKF qui publie les
+    # transformations : laisser ceci actif donnerait deux sources sur la même
+    # arête de l'arbre TF, ce qui est la faute décrite au §I.3.
+    bench:
+      publish_tf: true
+      tf_parent: "imu_world"
+      publish_marker: true

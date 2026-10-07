@@ -1,0 +1,3 @@
+title = "Retriever secret scanning"
+[extend]
+useDefault = true

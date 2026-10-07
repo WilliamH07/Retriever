@@ -1,0 +1,19 @@
+cmake_minimum_required(VERSION 3.8)
+project(retriever_msgs)
+
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(std_msgs REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/ImuStatus.msg"
+  "msg/LinkStatus.msg"
+  "msg/NodeStatus.msg"
+  "msg/MotorCommand.msg"
+  "msg/MotorEnable.msg"
+  "msg/MotorState.msg"
+  DEPENDENCIES std_msgs
+)
+
+ament_export_dependencies(rosidl_default_runtime)
+ament_package()
