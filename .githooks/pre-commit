@@ -1,0 +1,9 @@
+#!/bin/sh
+# Bloque les commits contenant des secrets. Installer : sh scripts/install-hooks.sh
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+python3 scripts/secret_scan.py
+if command -v gitleaks >/dev/null 2>&1; then
+  if [ -f .gitleaks.toml ]; then gitleaks git --staged --redact --no-banner --config .gitleaks.toml
+  else gitleaks git --staged --redact --no-banner; fi
+fi
