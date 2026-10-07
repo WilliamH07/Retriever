@@ -1,68 +1,48 @@
-/* ===========================================================================
- *  motors.h — pilotage de banc de N variateurs ZS-X11H
- *
- *  Une consigne par moteur en rapport cyclique signé [-1, +1], un masque
- *  d'autorisation, un chien de garde, une pente. Rien de plus : pas
- *  d'asservissement (la carte variateur a le sien), pas de retour Hall (à
- *  venir), pas de freinage (affaire de la carte motor_interface, §Z.1).
- *
- *  Copyright (c) 2026 William Hanczyk — Apache License 2.0
- * =========================================================================== */
-
+/* ZS-X11H bench outputs. No Hall feedback or hardware safety claim. Apache-2.0. */
 #ifndef RT_MOTORS_H
 #define RT_MOTORS_H
-
-#include <stdbool.h>
-#include <stdint.h>
-
 #include "esp_err.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define RT_MOTORS_MAX 4
+#include "motor_control.h"
 
 typedef struct {
-    int pwm;            /**< GPIO de la PWM filtrée → VR */
-    int dir;            /**< GPIO DIR, drain ouvert */
-    int stop;           /**< GPIO STOP, drain ouvert, actif bas côté variateur */
+    int pwm;
+    int dir;
+    int stop;
     const char *name;
 } rt_motor_pins_t;
 
 typedef struct {
-    rt_motor_pins_t pins[RT_MOTORS_MAX];
-    int count;              /**< moteurs réellement pilotés, ≤ RT_MOTORS_MAX */
+    rt_motor_pins_t pins[RT_MOTORS_MAX]; /* Local output slots, independent of role. */
+    int count;
+    int first_motor;                    /* Global index: front=0, rear=2, bench=0. */
     int pwm_freq_hz;
     int pwm_resolution_bits;
+    bool logic_inverted;               /* External NMOS: GPIO high pulls driver input low. */
     uint32_t cmd_timeout_ms;
-    float slew_per_s;       /**< pente max de la consigne, en unité/s */
+    uint32_t reverse_deadtime_ms;
+    float slew_per_s;
+    float duty_limit;
 } rt_motors_config_t;
 
 typedef struct {
-    float applied[RT_MOTORS_MAX];   /**< consigne effectivement en sortie */
+    float applied[RT_MOTORS_MAX];
+    uint16_t pwm_readback[RT_MOTORS_MAX]; /* LEDC registers, global wheel indices. */
+    uint8_t stop_gpio_high;             /* Physical ESP pad levels, before interface. */
     uint8_t enable_mask;
-    uint8_t flags;                  /**< RT_MOTOR_FLAG_* */
+    uint8_t flags;
     uint32_t cmd_age_ms;
+    uint8_t configured_mask;
+    uint8_t selftest_passed;
+    uint8_t selftest_failed;
+    uint32_t rejected;
+    uint32_t output_errors;
 } rt_motors_state_t;
 
-/** Configure les GPIO et la PWM, tout à l'état sûr, et démarre la tâche 200 Hz. */
 esp_err_t rt_motors_init(const rt_motors_config_t *cfg);
-
-/** Dépose une consigne. Appelable depuis n'importe quelle tâche. */
-void rt_motors_command(const float duty[RT_MOTORS_MAX]);
-
-/** Dépose un masque d'autorisation. */
-void rt_motors_enable(uint8_t mask);
-
-/** Arrêt logiciel : tout à zéro, tout interdit, il faudra ré-armer. */
+bool rt_motors_command(const float duty[RT_MOTORS_MAX]);
+bool rt_motors_enable(uint8_t mask);
+bool rt_motors_session(uint32_t hash);
 void rt_motors_estop(void);
-
-/** Photo de l'état. */
+void rt_motors_reject(void);
 void rt_motors_get_state(rt_motors_state_t *out);
-
-#ifdef __cplusplus
-}
 #endif
-
-#endif /* RT_MOTORS_H */

@@ -35,6 +35,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description() -> LaunchDescription:
+    peer = LaunchConfiguration("peer")
     device = LaunchConfiguration("device")
     baudrate = LaunchConfiguration("baudrate")
     foxglove = LaunchConfiguration("foxglove")
@@ -53,6 +54,7 @@ def generate_launch_description() -> LaunchDescription:
                 description="Port serie de l'ESP32 MOTION. Avec deux DevKitC, "
                 "`ls -l /dev/serial/by-id/` est le seul nom fiable.",
             ),
+            DeclareLaunchArgument("peer", default_value="motion_front", choices=["motion_front", "motion_rear"]),
             DeclareLaunchArgument("baudrate", default_value="921600"),
             DeclareLaunchArgument("foxglove", default_value="true"),
             DeclareLaunchArgument("foxglove_port", default_value="8765"),
@@ -65,7 +67,7 @@ def generate_launch_description() -> LaunchDescription:
                 emulate_tty=True,
                 parameters=[
                     params,
-                    {"serial.device": device, "serial.baudrate": baudrate},
+                    {"serial.device": device, "serial.baudrate": baudrate, "link.peer": peer},
                 ],
                 # Les etats de liaison sont propres a CE pont ; on les range
                 # sous /retriever/motion pour ne pas ecraser ceux du banc IMU

@@ -26,9 +26,9 @@ SocketCanTransport::SocketCanTransport(std::string interface)
 {
 }
 
-SocketCanTransport::~SocketCanTransport() { close(); }
+SocketCanTransport::~SocketCanTransport() {close();}
 
-std::string SocketCanTransport::describe() const { return "socketcan " + interface_; }
+std::string SocketCanTransport::describe() const {return "socketcan " + interface_;}
 
 void SocketCanTransport::open()
 {
@@ -129,7 +129,6 @@ bool SocketCanTransport::send(const protocol::Frame & frame)
   }
   return true;
 }
-
 
 
 Stats SocketCanTransport::stats() const

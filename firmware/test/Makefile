@@ -9,7 +9,7 @@
 
 CC      ?= gcc
 CFLAGS  ?= -std=c99 -Wall -Wextra -Werror -O2
-INCLUDES = -I../protocol/generated -I../components/retriever_link/portable
+INCLUDES = -I../esp32_motion/main -I../protocol/generated -I../components/retriever_link/portable
 PORTABLE = ../components/retriever_link/portable
 BUILD    = build
 
@@ -43,9 +43,17 @@ $(BUILD)/test_protocol: $(PROTO_HDR)
 vectors: $(BUILD)/emit_vectors
 	@$(BUILD)/emit_vectors
 
-run: $(BUILD)/test_protocol $(BUILD)/test_framing
+$(BUILD)/test_motor_control: test_motor_control.c ../esp32_motion/main/motor_control.c ../esp32_motion/main/motor_control.h $(PROTO_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) $(INCLUDES) test_motor_control.c ../esp32_motion/main/motor_control.c -lm -o $@
+
+$(BUILD)/test_motor_outputs: test_motor_outputs.c $(wildcard fakes/*.h fakes/driver/*.h fakes/freertos/*.h) ../esp32_motion/main/motors.c ../esp32_motion/main/motors.h ../esp32_motion/main/motor_control.c ../esp32_motion/main/motor_control.h $(PROTO_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -Ifakes $(INCLUDES) test_motor_outputs.c ../esp32_motion/main/motor_control.c -lm -o $@
+
+run: $(BUILD)/test_protocol $(BUILD)/test_framing $(BUILD)/test_motor_control $(BUILD)/test_motor_outputs
 	@echo "=== protocole ==="   && $(BUILD)/test_protocol
 	@echo "=== cadrage ==="     && $(BUILD)/test_framing
+	@$(BUILD)/test_motor_control
+	@$(BUILD)/test_motor_outputs
 
 clean:
 	rm -rf $(BUILD)

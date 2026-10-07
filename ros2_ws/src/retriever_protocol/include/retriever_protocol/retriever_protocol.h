@@ -3,8 +3,8 @@
  *
  *  Source      : firmware/protocol/protocol.yaml
  *  Générateur  : firmware/protocol/generate.py
- *  Version     : 0.1.0
- *  Hash        : 0x670192A7  (670192a74b22602b555e9e4c5c8515869ae9adaf2839b473d6c4ddac79563dc3)
+ *  Version     : 0.2.0
+ *  Hash        : 0x61ADA43C  (61ada43c38281d622a161ba8db8a729f18897e0408ec2bec78cfa793ab3f97ac)
  *
  *  Toute modification doit se faire dans le YAML puis passer par le
  *  générateur. La CI (tools/check_protocol_sync.py) échoue sinon.
@@ -27,9 +27,9 @@
 extern "C" {
 #endif
 
-#define RT_PROTOCOL_VERSION   "0.1.0"
-#define RT_PROTOCOL_HASH      0x670192A7u
-#define RT_PROTOCOL_HASH_FULL "670192a74b22602b555e9e4c5c8515869ae9adaf2839b473d6c4ddac79563dc3"
+#define RT_PROTOCOL_VERSION   "0.2.0"
+#define RT_PROTOCOL_HASH      0x61ADA43Cu
+#define RT_PROTOCOL_HASH_FULL "61ada43c38281d622a161ba8db8a729f18897e0408ec2bec78cfa793ab3f97ac"
 #define RT_MAX_PAYLOAD        8u
 #define RT_ID_BITS            11u
 #define RT_ID_MASK            0x7FFu
@@ -153,6 +153,17 @@ typedef enum {
 #define RT_MOTOR_FLAG_CMD_TIMEOUT 0x02u
 #define RT_MOTOR_FLAG_ESTOP 0x04u
 #define RT_MOTOR_FLAG_NEVER_ARMED 0x08u
+#define RT_MOTOR_FLAG_OUTPUT_FAULT 0x10u
+#define RT_MOTOR_FLAG_PROTOCOL_BLOCKED 0x20u
+#define RT_MOTOR_FLAG_REVERSING 0x40u
+#define RT_MOTOR_FLAG_LIMITED 0x80u
+
+/* Contrôles logiciels sans mouvement. Ne prouvent ni VR au connecteur ni la rotation. */
+#define RT_MOTOR_SELFTEST_CONFIG 0x01u
+#define RT_MOTOR_SELFTEST_GPIO 0x02u
+#define RT_MOTOR_SELFTEST_PWM 0x04u
+#define RT_MOTOR_SELFTEST_TASK 0x08u
+#define RT_MOTOR_SELFTEST_LINK 0x10u
 
 /* Niveau d'un fragment de journal tunnellisé (§AC.5). */
 typedef enum {
@@ -173,7 +184,11 @@ typedef enum {
 #define RT_ID_MOT_STATUS_REAR          0x191u
 #define RT_ID_MOTOR_CMD                0x110u
 #define RT_ID_MOTOR_ENABLE             0x111u
+#define RT_ID_MOTOR_SESSION            0x112u
 #define RT_ID_MOTOR_STATE              0x1A0u
+#define RT_ID_MOTOR_STATE_REAR         0x1A1u
+#define RT_ID_MOTOR_DIAG_FRONT         0x1A2u
+#define RT_ID_MOTOR_DIAG_REAR          0x1A3u
 #define RT_ID_POWER                    0x200u
 #define RT_ID_BATTERY                  0x201u
 #define RT_ID_CELLS_A                  0x202u
@@ -207,7 +222,11 @@ typedef enum {
 #define RT_DLC_MOT_STATUS_REAR         4u
 #define RT_DLC_MOTOR_CMD               8u
 #define RT_DLC_MOTOR_ENABLE            2u
+#define RT_DLC_MOTOR_SESSION           6u
 #define RT_DLC_MOTOR_STATE             8u
+#define RT_DLC_MOTOR_STATE_REAR        8u
+#define RT_DLC_MOTOR_DIAG_FRONT        8u
+#define RT_DLC_MOTOR_DIAG_REAR         8u
 #define RT_DLC_POWER                   8u
 #define RT_DLC_BATTERY                 8u
 #define RT_DLC_CELLS_A                 8u
@@ -572,8 +591,8 @@ static inline bool rt_mot_status_rear_unpack(const rt_frame_t *f, rt_mot_status_
 }
 
 /* MOTOR_CMD  id 0x110  dlc 8  émetteur HOST  50 Hz  [bench]
- * Consigne par moteur, en rapport cyclique signé : -1 = pleine vitesse
- * arrière, +1 = pleine vitesse avant, 0 = arrêt. Le signe fixe DIR, la
+ * Consigne par moteur, en rapport cyclique signé : -1 = pleine consigne
+ * arrière, +1 = pleine consigne avant, 0 = arrêt. Le signe fixe DIR, la
  * valeur absolue fixe VR. ⚠️ Doit être RÉPÉTÉE à 50 Hz : le nœud ramène tout
  * à zéro s'il ne reçoit rien pendant 500 ms. Ce n'est pas un choix
  * d'ergonomie, c'est ce qui arrête les roues quand le PC plante.
@@ -631,6 +650,9 @@ static inline bool rt_motor_cmd_unpack(const rt_frame_t *f, rt_motor_cmd_t *m)
  * Autorise ou interdit chaque moteur. Au démarrage, tout est interdit :
  * aucune consigne ne sort avant une MOTOR_ENABLE explicite. ⚠️ magic 0xEB —
  * une trame corrompue ne doit pas pouvoir mettre une roue en marche.
+ * Armement accepté seulement après MOTOR_SESSION concordante et consigne
+ * fraîche à zéro pour les roues locales. Une perte de commande désarme :
+ * recevoir de nouvelles commandes ne redémarre pas les roues.
  *
  *   @0 enable_mask: u8  b0..b3 : moteur 0..3 autorisé
  *   @1 magic: u8  0xEB
@@ -659,11 +681,48 @@ static inline bool rt_motor_enable_unpack(const rt_frame_t *f, rt_motor_enable_t
     return true;
 }
 
+/* MOTOR_SESSION  id 0x112  dlc 6  émetteur HOST  1 Hz  [bench]
+ * Validation du protocole avant armement. Ne désarme pas une session déjà
+ * concordante.
+ *
+ *   @0 target: u8
+ *   @1 protocol_hash: u32
+ *   @5 magic: u8  0xB2
+ */
+typedef struct {
+    uint8_t  target;
+    uint32_t protocol_hash;
+    uint8_t  magic;
+} rt_motor_session_t;
+
+static inline void rt_motor_session_pack(const rt_motor_session_t *m, rt_frame_t *f)
+{
+    f->id = RT_ID_MOTOR_SESSION;
+    f->dlc = RT_DLC_MOTOR_SESSION;
+    memset(f->data, 0, sizeof(f->data));
+    uint8_t raw_target = (uint8_t)(m->target);
+    rt_put_u8(f->data + 0, raw_target);
+    uint32_t raw_protocol_hash = (uint32_t)(m->protocol_hash);
+    rt_put_u32(f->data + 1, raw_protocol_hash);
+    uint8_t raw_magic = (uint8_t)(m->magic);
+    rt_put_u8(f->data + 5, raw_magic);
+}
+
+static inline bool rt_motor_session_unpack(const rt_frame_t *f, rt_motor_session_t *m)
+{
+    if (f->id != RT_ID_MOTOR_SESSION || f->dlc < RT_DLC_MOTOR_SESSION) return false;
+    m->target = rt_get_u8(f->data + 0);
+    m->protocol_hash = rt_get_u32(f->data + 1);
+    m->magic = rt_get_u8(f->data + 5);
+    return true;
+}
+
 /* MOTOR_STATE  id 0x1A0  dlc 8  émetteur MOTION_FRONT  10 Hz  [bench]
- * Ce que le nœud applique réellement, pour l'afficher en face de ce qui a
- * été demandé. `applied_m*` est la consigne après chien de garde et masque
- * d'autorisation, en centièmes : si elle diffère de la commande, c'est
- * qu'une sécurité est intervenue, et `flags` dit laquelle.
+ * Consigne électrique demandée aux sorties du nœud avant (ou banc quatre
+ * roues), pour l'afficher en face de ce qui a été demandé. `applied_m*` est
+ * la consigne après chien de garde et masque d'autorisation, en centièmes :
+ * si elle diffère de la commande, c'est qu'une sécurité est intervenue, et
+ * `flags` dit laquelle.
  *
  *   @0 applied_m0: i8 [1]
  *   @1 applied_m1: i8 [1]
@@ -726,6 +785,175 @@ static inline bool rt_motor_state_unpack(const rt_frame_t *f, rt_motor_state_t *
     m->enable_mask = rt_get_u8(f->data + 4);
     m->flags = rt_get_u8(f->data + 5);
     m->cmd_age_ms = rt_get_u16(f->data + 6);
+    return true;
+}
+
+/* MOTOR_STATE_REAR  id 0x1A1  dlc 8  émetteur MOTION_REAR  10 Hz  [bench]
+ * Même disposition que MOTOR_STATE.
+ *
+ *   @0 applied_m0: i8 [1]
+ *   @1 applied_m1: i8 [1]
+ *   @2 applied_m2: i8 [1]
+ *   @3 applied_m3: i8 [1]
+ *   @4 enable_mask: u8
+ *   @5 flags: u8
+ *   @6 cmd_age_ms: u16 [ms]  Âge de la dernière MOTOR_CMD, saturé à 65535
+ */
+typedef struct {
+    float    applied_m0;
+    float    applied_m1;
+    float    applied_m2;
+    float    applied_m3;
+    uint8_t  enable_mask;
+    uint8_t  flags;
+    uint16_t cmd_age_ms;
+} rt_motor_state_rear_t;
+
+static inline void rt_motor_state_rear_pack(const rt_motor_state_rear_t *m, rt_frame_t *f)
+{
+    f->id = RT_ID_MOTOR_STATE_REAR;
+    f->dlc = RT_DLC_MOTOR_STATE_REAR;
+    memset(f->data, 0, sizeof(f->data));
+    double v_applied_m0 = ((double)(m->applied_m0) - (0.0)) / (0.01);
+    if (v_applied_m0 > 127.0) v_applied_m0 = 127.0;
+    if (v_applied_m0 < -128.0) v_applied_m0 = -128.0;
+    int8_t raw_applied_m0 = (int8_t)rt_lround(v_applied_m0);
+    rt_put_i8(f->data + 0, raw_applied_m0);
+    double v_applied_m1 = ((double)(m->applied_m1) - (0.0)) / (0.01);
+    if (v_applied_m1 > 127.0) v_applied_m1 = 127.0;
+    if (v_applied_m1 < -128.0) v_applied_m1 = -128.0;
+    int8_t raw_applied_m1 = (int8_t)rt_lround(v_applied_m1);
+    rt_put_i8(f->data + 1, raw_applied_m1);
+    double v_applied_m2 = ((double)(m->applied_m2) - (0.0)) / (0.01);
+    if (v_applied_m2 > 127.0) v_applied_m2 = 127.0;
+    if (v_applied_m2 < -128.0) v_applied_m2 = -128.0;
+    int8_t raw_applied_m2 = (int8_t)rt_lround(v_applied_m2);
+    rt_put_i8(f->data + 2, raw_applied_m2);
+    double v_applied_m3 = ((double)(m->applied_m3) - (0.0)) / (0.01);
+    if (v_applied_m3 > 127.0) v_applied_m3 = 127.0;
+    if (v_applied_m3 < -128.0) v_applied_m3 = -128.0;
+    int8_t raw_applied_m3 = (int8_t)rt_lround(v_applied_m3);
+    rt_put_i8(f->data + 3, raw_applied_m3);
+    uint8_t raw_enable_mask = (uint8_t)(m->enable_mask);
+    rt_put_u8(f->data + 4, raw_enable_mask);
+    uint8_t raw_flags = (uint8_t)(m->flags);
+    rt_put_u8(f->data + 5, raw_flags);
+    uint16_t raw_cmd_age_ms = (uint16_t)(m->cmd_age_ms);
+    rt_put_u16(f->data + 6, raw_cmd_age_ms);
+}
+
+static inline bool rt_motor_state_rear_unpack(const rt_frame_t *f, rt_motor_state_rear_t *m)
+{
+    if (f->id != RT_ID_MOTOR_STATE_REAR || f->dlc < RT_DLC_MOTOR_STATE_REAR) return false;
+    m->applied_m0 = (float)((double)(rt_get_i8(f->data + 0)) * (0.01) + (0.0));
+    m->applied_m1 = (float)((double)(rt_get_i8(f->data + 1)) * (0.01) + (0.0));
+    m->applied_m2 = (float)((double)(rt_get_i8(f->data + 2)) * (0.01) + (0.0));
+    m->applied_m3 = (float)((double)(rt_get_i8(f->data + 3)) * (0.01) + (0.0));
+    m->enable_mask = rt_get_u8(f->data + 4);
+    m->flags = rt_get_u8(f->data + 5);
+    m->cmd_age_ms = rt_get_u16(f->data + 6);
+    return true;
+}
+
+/* MOTOR_DIAG_FRONT  id 0x1A2  dlc 8  émetteur MOTION_FRONT  10 Hz  [bench]
+ * Self-test sans mouvement : bits réussis/échoués et masque des roues
+ * configurées (pas une détection de présence). Compteurs saturés à 65535.
+ * Aucun Hall, courant ou température n'est simulé.
+ *
+ *   @0 passed: u8
+ *   @1 failed: u8
+ *   @2 configured_mask: u8
+ *   @3 flags: u8
+ *   @4 rejected: u16
+ *   @6 output_errors: u16
+ */
+typedef struct {
+    uint8_t  passed;
+    uint8_t  failed;
+    uint8_t  configured_mask;
+    uint8_t  flags;
+    uint16_t rejected;
+    uint16_t output_errors;
+} rt_motor_diag_front_t;
+
+static inline void rt_motor_diag_front_pack(const rt_motor_diag_front_t *m, rt_frame_t *f)
+{
+    f->id = RT_ID_MOTOR_DIAG_FRONT;
+    f->dlc = RT_DLC_MOTOR_DIAG_FRONT;
+    memset(f->data, 0, sizeof(f->data));
+    uint8_t raw_passed = (uint8_t)(m->passed);
+    rt_put_u8(f->data + 0, raw_passed);
+    uint8_t raw_failed = (uint8_t)(m->failed);
+    rt_put_u8(f->data + 1, raw_failed);
+    uint8_t raw_configured_mask = (uint8_t)(m->configured_mask);
+    rt_put_u8(f->data + 2, raw_configured_mask);
+    uint8_t raw_flags = (uint8_t)(m->flags);
+    rt_put_u8(f->data + 3, raw_flags);
+    uint16_t raw_rejected = (uint16_t)(m->rejected);
+    rt_put_u16(f->data + 4, raw_rejected);
+    uint16_t raw_output_errors = (uint16_t)(m->output_errors);
+    rt_put_u16(f->data + 6, raw_output_errors);
+}
+
+static inline bool rt_motor_diag_front_unpack(const rt_frame_t *f, rt_motor_diag_front_t *m)
+{
+    if (f->id != RT_ID_MOTOR_DIAG_FRONT || f->dlc < RT_DLC_MOTOR_DIAG_FRONT) return false;
+    m->passed = rt_get_u8(f->data + 0);
+    m->failed = rt_get_u8(f->data + 1);
+    m->configured_mask = rt_get_u8(f->data + 2);
+    m->flags = rt_get_u8(f->data + 3);
+    m->rejected = rt_get_u16(f->data + 4);
+    m->output_errors = rt_get_u16(f->data + 6);
+    return true;
+}
+
+/* MOTOR_DIAG_REAR  id 0x1A3  dlc 8  émetteur MOTION_REAR  10 Hz  [bench]
+ * Même disposition que MOTOR_DIAG_FRONT.
+ *
+ *   @0 passed: u8
+ *   @1 failed: u8
+ *   @2 configured_mask: u8
+ *   @3 flags: u8
+ *   @4 rejected: u16
+ *   @6 output_errors: u16
+ */
+typedef struct {
+    uint8_t  passed;
+    uint8_t  failed;
+    uint8_t  configured_mask;
+    uint8_t  flags;
+    uint16_t rejected;
+    uint16_t output_errors;
+} rt_motor_diag_rear_t;
+
+static inline void rt_motor_diag_rear_pack(const rt_motor_diag_rear_t *m, rt_frame_t *f)
+{
+    f->id = RT_ID_MOTOR_DIAG_REAR;
+    f->dlc = RT_DLC_MOTOR_DIAG_REAR;
+    memset(f->data, 0, sizeof(f->data));
+    uint8_t raw_passed = (uint8_t)(m->passed);
+    rt_put_u8(f->data + 0, raw_passed);
+    uint8_t raw_failed = (uint8_t)(m->failed);
+    rt_put_u8(f->data + 1, raw_failed);
+    uint8_t raw_configured_mask = (uint8_t)(m->configured_mask);
+    rt_put_u8(f->data + 2, raw_configured_mask);
+    uint8_t raw_flags = (uint8_t)(m->flags);
+    rt_put_u8(f->data + 3, raw_flags);
+    uint16_t raw_rejected = (uint16_t)(m->rejected);
+    rt_put_u16(f->data + 4, raw_rejected);
+    uint16_t raw_output_errors = (uint16_t)(m->output_errors);
+    rt_put_u16(f->data + 6, raw_output_errors);
+}
+
+static inline bool rt_motor_diag_rear_unpack(const rt_frame_t *f, rt_motor_diag_rear_t *m)
+{
+    if (f->id != RT_ID_MOTOR_DIAG_REAR || f->dlc < RT_DLC_MOTOR_DIAG_REAR) return false;
+    m->passed = rt_get_u8(f->data + 0);
+    m->failed = rt_get_u8(f->data + 1);
+    m->configured_mask = rt_get_u8(f->data + 2);
+    m->flags = rt_get_u8(f->data + 3);
+    m->rejected = rt_get_u16(f->data + 4);
+    m->output_errors = rt_get_u16(f->data + 6);
     return true;
 }
 
@@ -1675,7 +1903,7 @@ static inline bool rt_heartbeat_motion_front_unpack(const rt_frame_t *f, rt_hear
     return true;
 }
 
-/* HEARTBEAT_MOTION_REAR  id 0x703  dlc 8  émetteur MOTION_REAR  10 Hz  [planned]
+/* HEARTBEAT_MOTION_REAR  id 0x703  dlc 8  émetteur MOTION_REAR  10 Hz  [bench]
  * Même disposition que HEARTBEAT_SAFETY.
  *
  *   @0 state: u8
@@ -1729,7 +1957,11 @@ static const rt_frame_info_t rt_frame_table[] = {
     { 0x191u, 4u, "MOT_STATUS_REAR" },
     { 0x110u, 8u, "MOTOR_CMD" },
     { 0x111u, 2u, "MOTOR_ENABLE" },
+    { 0x112u, 6u, "MOTOR_SESSION" },
     { 0x1A0u, 8u, "MOTOR_STATE" },
+    { 0x1A1u, 8u, "MOTOR_STATE_REAR" },
+    { 0x1A2u, 8u, "MOTOR_DIAG_FRONT" },
+    { 0x1A3u, 8u, "MOTOR_DIAG_REAR" },
     { 0x200u, 8u, "POWER" },
     { 0x201u, 8u, "BATTERY" },
     { 0x202u, 8u, "CELLS_A" },
@@ -1753,7 +1985,7 @@ static const rt_frame_info_t rt_frame_table[] = {
     { 0x702u, 8u, "HEARTBEAT_MOTION_FRONT" },
     { 0x703u, 8u, "HEARTBEAT_MOTION_REAR" },
 };
-#define RT_FRAME_COUNT 33u
+#define RT_FRAME_COUNT 37u
 
 static inline const char *rt_frame_name(uint16_t id)
 {

@@ -17,7 +17,7 @@
 #include "retriever_protocol/protocol.hpp"
 
 extern "C" {
-#include "rt_framing.h"
+#include "rt_framing.h"  // NOLINT(build/include_subdir): shared portable C header
 }
 
 namespace retriever::link

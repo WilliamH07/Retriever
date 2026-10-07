@@ -4,7 +4,7 @@
  *  ⚠️ CECI EST LA CONFIGURATION DU BANC, pas celle de la carte `motor_interface`
  *  (§Z du dossier). La carte pilote VR par un DAC MCP4728 et les lignes
  *  logiques par des MOSFET DMG1012T ; le banc pilote VR par une PWM filtrée et
- *  les lignes logiques en drain ouvert directement depuis l'ESP32. Quand la
+ *  les lignes logiques via une interface externe 3,3 V / 5 V. Quand la
  *  carte existera, ce fichier sera mis en correspondance avec son ICD.
  *
  *  Règles de choix des broches (mêmes que le nœud SAFETY, voir son
@@ -45,17 +45,13 @@
  *      la chaîne de commande et faire tourner les roues ; ce n'est PAS le
  *      montage de mesure, qui attend le DAC 0–5 V de la carte.
  *
- *  ── DIR et STOP en DRAIN OUVERT ─────────────────────────────────────────────
- *
- *      Le variateur a ses propres tirages vers 5 V. En drain ouvert, l'ESP32
- *      ne fait que tirer à la masse : il ne source jamais 3,3 V dans un
- *      circuit 5 V, et la topologie est la même que celle de la carte finale
- *      (MOSFET drain ouvert). Niveau logique 1 = broche relâchée = tiré à 5 V
- *      par le variateur ; niveau 0 = tiré à la masse.
- *
- *      ⚠️ Conséquence pour STOP, actif bas : GPIO à 0 = STOP tiré bas = roue
- *      libre. C'est l'état de reset de l'ESP32 (tout à la masse ou flottant),
- *      donc l'état sûr est aussi l'état par défaut. C'est voulu.
+ *  ── DIR et STOP : interface de niveaux OBLIGATOIRE ──────────────────────
+ *  Jamais de rappel 5 V directement sur un GPIO, même en drain ouvert.
+ *  Par défaut : GPIO côté 3,3 V d'un translateur NON INVERSANT adapté au
+ *  collecteur ouvert. Autre montage : NMOS externe (source GND, drain DIR/STOP,
+ *  gate GPIO) avec RETRIEVER_MOTOR_LOGIC_INVERTED=y et gate STOP tirée à 3,3 V
+ *  par 10 k pour maintenir STOP bas au reset. Contrôler au multimètre avant
+ *  connexion des moteurs. La carte finale utilisera son propre driver DAC.
  *
  *  Copyright (c) 2026 William Hanczyk — Apache License 2.0
  * =========================================================================== */
@@ -73,20 +69,32 @@
 #define BOARD_CAN_TX         5
 #define BOARD_CAN_RX         4
 
-/* Identité sur le bus. Le dossier prévoit MOTION_FRONT et MOTION_REAR à deux
- * roues chacun ; le banc n'a qu'un nœud pour tous les moteurs, il prend
- * l'identité FRONT. Le heartbeat 0x702 et le LINK_PONG le disent. */
-#define BOARD_NODE_ID        RT_NODE_ID_MOTION_FRONT
+/* Même logiciel, identité et indices de roues propres au profil. */
+#if CONFIG_RETRIEVER_ROLE_REAR
+#define BOARD_NODE_ID RT_NODE_ID_MOTION_REAR
+#define BOARD_FIRST_MOTOR 2
+#define BOARD_ROLE_NAME "rear"
+#else
+#define BOARD_NODE_ID RT_NODE_ID_MOTION_FRONT
+#define BOARD_FIRST_MOTOR 0
+#if CONFIG_RETRIEVER_ROLE_FRONT
+#define BOARD_ROLE_NAME "front"
+#else
+#define BOARD_ROLE_NAME "bench4"
+#endif
+#endif
 
 /* --- Moteurs ---------------------------------------------------------------
  *
- *  Une ligne par moteur, QUATRE lignes. Le nombre de moteurs réellement
+ *  Une ligne par SORTIE LOCALE, QUATRE lignes. Le nombre de moteurs réellement
  *  pilotés est CONFIG_RETRIEVER_MOTOR_COUNT (menuconfig → Retriever →
  *  Moteurs) : 3 aujourd'hui. Câbler le quatrième = brancher les trois fils de
  *  la ligne 3 et passer l'option à 4. Rien d'autre ne change : ni le
  *  protocole, ni le nœud ROS, ni la mise en page Foxglove.
  *
- *       moteur   PWM→VR   DIR   STOP
+ *  FRONT utilise les sorties 0/1 pour m0/m1 ; REAR les mêmes pour m2/m3.
+ *  BENCH4 utilise 0..N-1 pour m0..m(N-1).
+ *       sortie   PWM→VR   DIR   STOP
  */
 #define BOARD_MOTOR_TABLE                                                       \
     {                                                                          \

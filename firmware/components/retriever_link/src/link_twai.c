@@ -118,7 +118,7 @@ static void twai_poll(TickType_t wait)
         twai_recover();
         return;
     }
-    if (msg.extd || msg.rtr) {
+    if (msg.extd || msg.rtr || msg.data_length_code > RT_MAX_PAYLOAD) {
         return;   /* le protocole n'utilise que des trames de données 11 bits */
     }
     rt_frame_t f;

@@ -537,6 +537,13 @@ essayer au hasard fait perdre plus de temps que de les parcourir dans l'ordre.
 
 ## 4 quater. Les moteurs — trois ZS-X11H depuis Foxglove
 
+**Mise à jour du 4 octobre 2026 :** les profils avant, arrière et banc quatre
+roues, la procédure de flash isolée et la recette sont dans
+[`firmware/esp32_motion/README.md`](../firmware/esp32_motion/README.md).
+Le firmware exige désormais une session de protocole concordante et une
+consigne fraîche à zéro avant armement ; mettre à jour les outils et ROS.
+La limite de duty du banc est 0,25 par défaut.
+
 Le banc B2. Un **second** ESP32 DevKitC, avec le firmware `esp32_motion`,
 pilote les variateurs ; le calculateur lui envoie les consignes qu'on tape dans
 Foxglove. Pas d'URDF, pas de vitesse en rad/s, pas de retour Hall : un rapport
@@ -559,9 +566,11 @@ GND ESP32 ──────────────────┴── GND va
 
 - Pleine échelle ≈ 3,0 V, soit environ 60 % de la vitesse max. Suffisant pour
   le banc ; sur le PCB, un ampli op ou un CNA 5 V donneront le reste.
-- **DIR** et **STOP** sont en collecteur ouvert (open-drain) : l'ESP32 tire à
-  la masse ou laisse flotter, la carte a ses propres résistances de rappel.
-  Aucun 5 V ne remonte vers l'ESP32.
+- **DIR** et **STOP** exigent une interface externe 3,3 V / 5 V. Le mode
+  drain ouvert interne de l'ESP32 ne le rend pas tolérant au 5 V : **ne pas
+  raccorder directement un rappel 5 V à ses GPIO**. Utiliser le translateur
+  non inversant ou les NMOS externes décrits dans le README MOTION ; avec
+  les NMOS, sélectionner `--inverted`.
 - **STOP au niveau bas = roue libre.** Le firmware le met bas avant de couper
   le PWM, et haut après l'avoir relancé.
 - **EL / BRAKE** n'est pas câblé sur le banc (frein actif haut — à voir sur le

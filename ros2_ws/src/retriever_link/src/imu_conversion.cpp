@@ -23,7 +23,7 @@ void fill_diagonal(std::array<double, 9> & cov, double vx, double vy, double vz)
   cov[8] = vz;
 }
 
-constexpr double square(double v) { return v * v; }
+constexpr double square(double v) {return v * v;}
 
 /// Sentinelle émise par le firmware quand le capteur ne fournit pas
 /// d'estimation d'erreur d'orientation. Doit rester égale à

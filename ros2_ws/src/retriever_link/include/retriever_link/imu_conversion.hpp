@@ -1,3 +1,4 @@
+// Copyright 2026 William Hanczyk — Apache License 2.0
 // ===========================================================================
 //  imu_conversion.hpp — trames → sensor_msgs/Imu, proprement
 //

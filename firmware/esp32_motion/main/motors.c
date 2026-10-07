@@ -1,285 +1,298 @@
-/* ===========================================================================
- *  motors.c — voir motors.h
- *
- *  Structure : la réception (tâche de la liaison) DÉPOSE ; la tâche de commande
- *  à 200 Hz APPLIQUE. Même découpage que l'étalonnage de l'IMU, et pour la même
- *  raison : les périphériques ne sont touchés que par une seule tâche.
- *
- *  L'ordre des sécurités dans la boucle n'est pas arbitraire :
- *    1. chien de garde  → si le PC s'est tu, consigne nulle, quoi qu'on ait déposé
- *    2. autorisation    → un moteur non autorisé reste à zéro, STOP asserté
- *    3. pente           → la consigne autorisée est rapprochée de la cible sans
- *                         dépasser la pente, SAUF vers zéro : une coupure est
- *                         immédiate
- *
- *  Copyright (c) 2026 William Hanczyk — Apache License 2.0
- * =========================================================================== */
-
+/* One task owns GPIO/LEDC. The portable policy is shared with host tests. Apache-2.0. */
 #include "motors.h"
-
 #include <inttypes.h>
 #include <math.h>
 #include <string.h>
-
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-#include "esp_check.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "retriever_protocol.h"
-
 static const char *TAG = "motors";
-
-#define CTRL_HZ         200
-#define CTRL_TASK_PRIO  18
-#define CTRL_TASK_STACK 3072
-
-static rt_motors_config_t s_cfg;
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
+static rt_motors_config_t s_cfg;
+static rt_motor_control_t s_control;
+static uint8_t s_passed, s_failed;
+static uint32_t s_output_errors;
+static bool s_initialized;
+static int s_pwm_channels;
+/* Last writes and next-cycle peripheral readback. Only ctrl_task writes these. */
+static float s_written[4], s_confirmed[4];
+static uint16_t s_pwm_readback[4];
+static uint8_t s_stop_levels;
 
-/* --- déposé par la réception, lu par la commande ------------------------- */
-static float    s_target[RT_MOTORS_MAX];
-static uint8_t  s_enable_mask;
-static bool     s_estop;
-static bool     s_ever_armed;
-static int64_t  s_last_cmd_us;      /* 0 = jamais reçu */
-
-/* --- écrit par la tâche de commande, lu partout : sous verrou ------------- */
-static float    s_applied[RT_MOTORS_MAX];
-static uint8_t  s_flags;
-static uint32_t s_cmd_age_ms;
-
-static inline float clampf(float v, float lo, float hi)
+static uint32_t duty_ticks(float duty)
 {
-    return v < lo ? lo : (v > hi ? hi : v);
+    return (uint32_t)lroundf(fabsf(duty) * (float)((1u << s_cfg.pwm_resolution_bits) - 1u));
 }
 
-/* --------------------------------------------------------------------------
- *  Sorties
- * ----------------------------------------------------------------------- */
-
-static void output_set(int i, float duty)
+static esp_err_t logic_set(int pin, int driver_level)
 {
-    const rt_motor_pins_t *p = &s_cfg.pins[i];
-    const bool run = fabsf(duty) > 0.0005f;
-
-    /* STOP d'abord quand on coupe, en dernier quand on démarre : il ne doit
-     * jamais y avoir de consigne non nulle sur VR avec STOP relâché par erreur
-     * dans le mauvais ordre. */
-    if (!run) {
-        gpio_set_level((gpio_num_t)p->stop, 0);   /* tiré bas = roue libre */
-    }
-
-    /* DIR : 1 = relâché = tiré à 5 V par le variateur. Quel sens est « avant »
-     * dépend du câblage de chaque moteur ; c'est au banc de le dire, et ça se
-     * corrige par le signe de la consigne côté ROS, pas ici. */
-    gpio_set_level((gpio_num_t)p->dir, duty >= 0.0f ? 1 : 0);
-
-    const uint32_t full = (1u << s_cfg.pwm_resolution_bits) - 1u;
-    const uint32_t d = (uint32_t)lroundf(fabsf(duty) * (float)full);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i, d);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i);
-
-    if (run) {
-        gpio_set_level((gpio_num_t)p->stop, 1);   /* relâché = marche */
-    }
+    return gpio_set_level((gpio_num_t)pin, s_cfg.logic_inverted ? !driver_level : driver_level);
 }
 
-static void outputs_all_safe(void)
+static esp_err_t output_set(int slot, float duty)
 {
-    for (int i = 0; i < s_cfg.count; ++i) {
-        output_set(i, 0.0f);
+    const rt_motor_pins_t *p = &s_cfg.pins[slot];
+    const bool run = duty != 0;
+    esp_err_t err;
+    if (!run && (err = logic_set(p->stop, 0)) != ESP_OK) return err;
+    /* Keep DIR unchanged at zero, including throughout reversal dead time. */
+    if (run && (err = logic_set(p->dir, duty > 0)) != ESP_OK) return err;
+    err = ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)slot,
+                        duty_ticks(duty));
+    if (err != ESP_OK) return err;
+    err = ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)slot);
+    if (err != ESP_OK) return err;
+    return run ? logic_set(p->stop, 1) : ESP_OK;
+}
+
+/* Best effort even after a peripheral failure. STOP first on every slot. */
+static void outputs_safe(void)
+{
+    for (int i = 0; i < s_cfg.count; ++i) (void)logic_set(s_cfg.pins[i].stop, 0);
+    for (int i = 0; i < s_pwm_channels; ++i) {
+        (void)ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i, 0);
+        (void)ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i);
+    }
+    memset(s_written, 0, sizeof(s_written));
+}
+
+static esp_err_t fail(uint8_t test, esp_err_t err)
+{
+    outputs_safe();
+    portENTER_CRITICAL(&s_lock);
+    s_failed |= test;
+    s_output_errors++;
+    rt_motor_control_stop(&s_control, true);
+    rt_motor_control_step(&s_control, esp_timer_get_time());
+    portEXIT_CRITICAL(&s_lock);
+    ESP_LOGE(TAG, "self-test 0x%02x: %s; sorties interdites", test, esp_err_to_name(err));
+    return err;
+}
+
+static void ctrl_cycle(void)
+{
+    /* Read AFTER the previous PWM update has had a full control period to
+     * reach the hardware. A successful API call alone is not output feedback.
+     * This measures peripheral registers and STOP pads, not wheel rotation. */
+    uint16_t raw[4] = {0};
+    float confirmed[4] = {0};
+    uint8_t stop_levels = 0, bad = 0;
+    for (int slot = 0; slot < s_cfg.count; ++slot) {
+        const int global = s_cfg.first_motor + slot;
+        raw[global] = ledc_get_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)slot);
+        const int stop = gpio_get_level((gpio_num_t)s_cfg.pins[slot].stop);
+        const int expected_stop = s_cfg.logic_inverted ? s_written[global] == 0 : s_written[global] != 0;
+        stop_levels |= (uint8_t)(stop << global);
+        confirmed[global] = copysignf((float)raw[global] /
+            (float)((1u << s_cfg.pwm_resolution_bits) - 1u), s_written[global]);
+        if (raw[global] != duty_ticks(s_written[global])) bad |= RT_MOTOR_SELFTEST_PWM;
+        if (stop != expected_stop) bad |= RT_MOTOR_SELFTEST_GPIO;
+        if (raw[global] != duty_ticks(s_written[global]) || stop != expected_stop)
+            ESP_LOGE(TAG, "readback m%d pwm=%u/%" PRIu32 " stop=%d/%d", global,
+                     raw[global], duty_ticks(s_written[global]), stop, expected_stop);
     }
     portENTER_CRITICAL(&s_lock);
-    memset(s_applied, 0, sizeof(s_applied));
+    memcpy(s_confirmed, confirmed, sizeof(confirmed));
+    memcpy(s_pwm_readback, raw, sizeof(raw));
+    s_stop_levels = stop_levels;
     portEXIT_CRITICAL(&s_lock);
-}
+    if (bad) { (void)fail(bad, ESP_FAIL); return; }
 
-/* --------------------------------------------------------------------------
- *  Boucle de commande
- * ----------------------------------------------------------------------- */
+    float applied[4];
+    portENTER_CRITICAL(&s_lock);
+    rt_motor_control_step(&s_control, esp_timer_get_time());
+    memcpy(applied, s_control.applied, sizeof(applied));
+    portEXIT_CRITICAL(&s_lock);
+    /* Inhibit every inactive output first, including ones that were already
+     * zero. Only then update active outputs. All writes share this one owner. */
+    for (int phase = 0; phase < 2; ++phase) {
+        for (int slot = 0; slot < s_cfg.count; ++slot) {
+            const int global = s_cfg.first_motor + slot;
+            if ((applied[global] != 0) != (phase != 0)) continue;
+            const esp_err_t err = output_set(slot, applied[global]);
+            if (err != ESP_OK) { (void)fail(RT_MOTOR_SELFTEST_PWM, err); return; }
+            s_written[global] = applied[global];
+        }
+    }
+}
 
 static void ctrl_task(void *arg)
 {
     (void)arg;
-    const float dt = 1.0f / (float)CTRL_HZ;
-    const float step = s_cfg.slew_per_s * dt;
+    if (esp_task_wdt_add(NULL) != ESP_OK) {
+        (void)fail(RT_MOTOR_SELFTEST_TASK, ESP_FAIL);
+        vTaskDelete(NULL);
+        return;
+    }
+    portENTER_CRITICAL(&s_lock);
+    s_passed |= RT_MOTOR_SELFTEST_TASK;
+    portEXIT_CRITICAL(&s_lock);
     TickType_t wake = xTaskGetTickCount();
-    float applied[RT_MOTORS_MAX] = {0};   /* copie locale : les sorties suivent celle-ci */
-
     for (;;) {
-        vTaskDelayUntil(&wake, pdMS_TO_TICKS(1000 / CTRL_HZ));
-
-        /* Photo atomique de ce qui a été déposé. */
-        float target[RT_MOTORS_MAX];
-        uint8_t mask;
-        bool estop, armed;
-        int64_t last_us;
-        portENTER_CRITICAL(&s_lock);
-        memcpy(target, s_target, sizeof(target));
-        mask = s_enable_mask;
-        estop = s_estop;
-        armed = s_ever_armed;
-        last_us = s_last_cmd_us;
-        portEXIT_CRITICAL(&s_lock);
-
-        const int64_t now = esp_timer_get_time();
-        const int64_t age_us = last_us ? (now - last_us) : INT64_MAX / 2;
-        const bool timeout = age_us > (int64_t)s_cfg.cmd_timeout_ms * 1000;
-
-        uint8_t flags = 0;
-        if (!armed) flags |= RT_MOTOR_FLAG_NEVER_ARMED;
-        if (estop)  flags |= RT_MOTOR_FLAG_ESTOP;
-        if (timeout) flags |= RT_MOTOR_FLAG_CMD_TIMEOUT;
-        if (mask & ((1u << s_cfg.count) - 1u)) flags |= RT_MOTOR_FLAG_ENABLED;
-
-        for (int i = 0; i < s_cfg.count; ++i) {
-            const bool allowed = !estop && !timeout && ((mask >> i) & 1u);
-            const float goal = allowed ? clampf(target[i], -1.0f, 1.0f) : 0.0f;
-
-            float next;
-            if (goal == 0.0f || (goal > 0.0f) != (applied[i] > 0.0f)) {
-                /* Coupure, ou changement de sens : on passe par zéro tout de
-                 * suite. La pente ne s'applique qu'à la montée. */
-                next = 0.0f;
-                if (goal != 0.0f && applied[i] == 0.0f) {
-                    next = clampf(goal, -step, step);
-                }
-            } else if (fabsf(goal) < fabsf(applied[i])) {
-                next = goal;                          /* ralentir : immédiat */
-            } else {
-                const float delta = clampf(goal - applied[i], -step, step);
-                next = applied[i] + delta;            /* accélérer : en pente */
-            }
-
-            if (next != applied[i]) {
-                applied[i] = next;
-                output_set(i, next);
-            }
+        vTaskDelayUntil(&wake, pdMS_TO_TICKS(5));
+        if (esp_task_wdt_reset() != ESP_OK) {
+            (void)fail(RT_MOTOR_SELFTEST_TASK, ESP_FAIL);
+            vTaskDelete(NULL);
+            return;
         }
-
-        portENTER_CRITICAL(&s_lock);
-        memcpy(s_applied, applied, sizeof(s_applied));
-        s_flags = flags;
-        s_cmd_age_ms = (age_us / 1000 > 65535) ? 65535u : (uint32_t)(age_us / 1000);
-        portEXIT_CRITICAL(&s_lock);
+        ctrl_cycle();
     }
 }
 
-/* --------------------------------------------------------------------------
- *  Interface
- * ----------------------------------------------------------------------- */
+static bool pins_valid(const rt_motors_config_t *cfg)
+{
+    uint64_t used = (1ULL << 1) | (1ULL << 3) | (1ULL << 4) | (1ULL << 5);
+    for (int i = 0; i < cfg->count; ++i) {
+        const int pins[] = {cfg->pins[i].pwm, cfg->pins[i].dir, cfg->pins[i].stop};
+        for (int k = 0; k < 3; ++k) {
+            const int p = pins[k];
+            if (!GPIO_IS_VALID_OUTPUT_GPIO(p) || p < 0 || p > 33 ||
+                p == 0 || p == 2 || (p >= 6 && p <= 12) ||
+                p == 15 || p == 16 || p == 17 || (used & (1ULL << p))) return false;
+            used |= 1ULL << p;
+        }
+    }
+    return true;
+}
 
 esp_err_t rt_motors_init(const rt_motors_config_t *cfg)
 {
-    if (cfg == NULL || cfg->count < 1 || cfg->count > RT_MOTORS_MAX) {
+    if (s_initialized) return ESP_ERR_INVALID_STATE;
+    /* Never shift by an unchecked GPIO or array index. */
+    if (!cfg || cfg->count < 1 || cfg->count > 4 || cfg->first_motor < 0 ||
+        cfg->first_motor + cfg->count > 4 || cfg->pwm_resolution_bits < 1 ||
+        cfg->pwm_resolution_bits > 14 || cfg->pwm_freq_hz <= 0 || !pins_valid(cfg)) {
+        s_failed = RT_MOTOR_SELFTEST_CONFIG;
+        s_control.fault = true;
         return ESP_ERR_INVALID_ARG;
     }
-    s_cfg = *cfg;
-
-    /* GPIO logiques en DRAIN OUVERT, à 0 (= tirés bas) AVANT toute PWM :
-     * STOP bas = roue libre, c'est l'état sûr. */
-    uint64_t mask = 0;
-    for (int i = 0; i < s_cfg.count; ++i) {
-        mask |= (1ULL << s_cfg.pins[i].dir) | (1ULL << s_cfg.pins[i].stop);
+    const rt_motor_control_config_t policy = {
+        .configured_mask = (uint8_t)(((1u << cfg->count) - 1u) << cfg->first_motor),
+        .timeout_ms = cfg->cmd_timeout_ms, .reverse_ms = cfg->reverse_deadtime_ms,
+        .slew_per_s = cfg->slew_per_s, .duty_limit = cfg->duty_limit,
+    };
+    if (!rt_motor_control_init(&s_control, &policy)) {
+        s_failed = RT_MOTOR_SELFTEST_CONFIG;
+        s_control.fault = true;
+        return ESP_ERR_INVALID_ARG;
     }
-    const gpio_config_t od = {
+    s_initialized = true;
+    s_cfg = *cfg;
+    s_passed = RT_MOTOR_SELFTEST_CONFIG;
+
+    uint64_t mask = 0;
+    /* Preload output latches before enabling GPIO drivers. */
+    for (int i = 0; i < cfg->count; ++i) {
+        logic_set(cfg->pins[i].stop, 0);
+        logic_set(cfg->pins[i].dir, 0);
+        mask |= (1ULL << cfg->pins[i].dir) | (1ULL << cfg->pins[i].stop);
+    }
+    const gpio_config_t gpio = {
         .pin_bit_mask = mask,
-        .mode = GPIO_MODE_OUTPUT_OD,
-        .pull_up_en = GPIO_PULLUP_DISABLE,     /* le tirage est côté variateur, en 5 V */
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .mode = cfg->logic_inverted ? GPIO_MODE_INPUT_OUTPUT : GPIO_MODE_INPUT_OUTPUT_OD,
+        .pull_up_en = GPIO_PULLUP_DISABLE, .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
-    ESP_RETURN_ON_ERROR(gpio_config(&od), TAG, "gpio drain ouvert");
-    for (int i = 0; i < s_cfg.count; ++i) {
-        gpio_set_level((gpio_num_t)s_cfg.pins[i].stop, 0);
-        gpio_set_level((gpio_num_t)s_cfg.pins[i].dir, 0);
+    esp_err_t err = gpio_config(&gpio);
+    if (err != ESP_OK) return fail(RT_MOTOR_SELFTEST_GPIO, err);
+    for (int i = 0; i < cfg->count; ++i) {
+        if (logic_set(cfg->pins[i].stop, 0) != ESP_OK ||
+            logic_set(cfg->pins[i].dir, 0) != ESP_OK ||
+            gpio_get_level((gpio_num_t)cfg->pins[i].stop) != (cfg->logic_inverted ? 1 : 0) ||
+            gpio_get_level((gpio_num_t)cfg->pins[i].dir) != (cfg->logic_inverted ? 1 : 0)) return fail(RT_MOTOR_SELFTEST_GPIO, ESP_FAIL);
     }
+    s_passed |= RT_MOTOR_SELFTEST_GPIO;
 
     const ledc_timer_config_t timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = (ledc_timer_bit_t)s_cfg.pwm_resolution_bits,
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = (uint32_t)s_cfg.pwm_freq_hz,
+        .duty_resolution = (ledc_timer_bit_t)cfg->pwm_resolution_bits,
+        .timer_num = LEDC_TIMER_0, .freq_hz = (uint32_t)cfg->pwm_freq_hz,
         .clk_cfg = LEDC_AUTO_CLK,
     };
-    ESP_RETURN_ON_ERROR(ledc_timer_config(&timer), TAG, "ledc timer");
-
-    for (int i = 0; i < s_cfg.count; ++i) {
+    err = ledc_timer_config(&timer);
+    if (err != ESP_OK) return fail(RT_MOTOR_SELFTEST_PWM, err);
+    for (int i = 0; i < cfg->count; ++i) {
         const ledc_channel_config_t ch = {
-            .gpio_num = s_cfg.pins[i].pwm,
-            .speed_mode = LEDC_LOW_SPEED_MODE,
-            .channel = (ledc_channel_t)i,
-            .intr_type = LEDC_INTR_DISABLE,
-            .timer_sel = LEDC_TIMER_0,
-            .duty = 0,
-            .hpoint = 0,
+            .gpio_num = cfg->pins[i].pwm, .speed_mode = LEDC_LOW_SPEED_MODE,
+            .channel = (ledc_channel_t)i, .intr_type = LEDC_INTR_DISABLE,
+            .timer_sel = LEDC_TIMER_0, .duty = 0, .hpoint = 0,
         };
-        ESP_RETURN_ON_ERROR(ledc_channel_config(&ch), TAG, "ledc canal %d", i);
+        err = ledc_channel_config(&ch);
+        if (err != ESP_OK) return fail(RT_MOTOR_SELFTEST_PWM, err);
+        s_pwm_channels++;
     }
-
-    memset(s_target, 0, sizeof(s_target));
-    memset(s_applied, 0, sizeof(s_applied));
-    s_enable_mask = 0;
-    s_estop = false;
-    s_ever_armed = false;
-    s_last_cmd_us = 0;
-    outputs_all_safe();
-
-    if (xTaskCreate(ctrl_task, "motors", CTRL_TASK_STACK, NULL, CTRL_TASK_PRIO, NULL) != pdPASS) {
-        return ESP_ERR_NO_MEM;
+    vTaskDelay(pdMS_TO_TICKS(1)); /* Duty readback is valid after the next PWM cycle. */
+    if (ledc_get_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0) != (uint32_t)cfg->pwm_freq_hz)
+        return fail(RT_MOTOR_SELFTEST_PWM, ESP_FAIL);
+    for (int i = 0; i < cfg->count; ++i) {
+        if (ledc_get_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i) != 0)
+            return fail(RT_MOTOR_SELFTEST_PWM, ESP_FAIL);
     }
-
-    for (int i = 0; i < s_cfg.count; ++i) {
-        ESP_LOGI(TAG, "%s : pwm=%d dir=%d stop=%d", s_cfg.pins[i].name,
-                 s_cfg.pins[i].pwm, s_cfg.pins[i].dir, s_cfg.pins[i].stop);
-    }
-    ESP_LOGI(TAG, "%d moteur(s), pwm %d Hz / %d bits, chien de garde %" PRIu32 " ms, pente %.1f/s",
-             s_cfg.count, s_cfg.pwm_freq_hz, s_cfg.pwm_resolution_bits,
-             s_cfg.cmd_timeout_ms, (double)s_cfg.slew_per_s);
+    s_passed |= RT_MOTOR_SELFTEST_PWM;
+    if (pdMS_TO_TICKS(5) == 0 ||
+        xTaskCreate(ctrl_task, "motors", 3072, NULL, 18, NULL) != pdPASS)
+        return fail(RT_MOTOR_SELFTEST_TASK, ESP_ERR_NO_MEM);
+    ESP_LOGI(TAG, "self-test sans mouvement: 0x%02x; roues=0x%02x; limite=%.2f",
+             s_passed, policy.configured_mask, (double)cfg->duty_limit);
     return ESP_OK;
 }
 
-void rt_motors_command(const float duty[RT_MOTORS_MAX])
+bool rt_motors_command(const float duty[4])
 {
     portENTER_CRITICAL(&s_lock);
-    memcpy(s_target, duty, sizeof(s_target));
-    s_last_cmd_us = esp_timer_get_time();
+    const bool ok = s_initialized && rt_motor_control_command(&s_control, duty, esp_timer_get_time());
     portEXIT_CRITICAL(&s_lock);
+    return ok;
 }
-
-void rt_motors_enable(uint8_t mask)
+bool rt_motors_enable(uint8_t mask)
 {
     portENTER_CRITICAL(&s_lock);
-    s_enable_mask = mask;
-    s_ever_armed = true;
-    if (mask != 0u) {
-        s_estop = false;      /* ré-armer explicitement lève l'arrêt logiciel */
-    }
+    const bool ok = s_initialized && rt_motor_control_enable(&s_control, mask, esp_timer_get_time());
     portEXIT_CRITICAL(&s_lock);
-    ESP_LOGI(TAG, "autorisation : masque 0x%02x", (unsigned)mask);
+    return ok;
 }
-
+bool rt_motors_session(uint32_t hash)
+{
+    portENTER_CRITICAL(&s_lock);
+    const bool ok = rt_motor_control_session(&s_control, hash);
+    portEXIT_CRITICAL(&s_lock);
+    return ok;
+}
 void rt_motors_estop(void)
 {
     portENTER_CRITICAL(&s_lock);
-    s_estop = true;
-    s_enable_mask = 0;
-    memset(s_target, 0, sizeof(s_target));
+    rt_motor_control_stop(&s_control, false);
     portEXIT_CRITICAL(&s_lock);
-    ESP_LOGW(TAG, "arret logiciel : tout a zero, re-armer par MOTOR_ENABLE");
 }
-
+void rt_motors_reject(void)
+{
+    portENTER_CRITICAL(&s_lock);
+    s_control.rejected++;
+    portEXIT_CRITICAL(&s_lock);
+}
 void rt_motors_get_state(rt_motors_state_t *out)
 {
-    if (out == NULL) return;
     portENTER_CRITICAL(&s_lock);
-    memcpy(out->applied, s_applied, sizeof(out->applied));
-    out->enable_mask = s_enable_mask;
-    out->flags = s_flags;
-    out->cmd_age_ms = s_cmd_age_ms;
+    memcpy(out->applied, s_confirmed, sizeof(out->applied));
+    memcpy(out->pwm_readback, s_pwm_readback, sizeof(out->pwm_readback));
+    out->stop_gpio_high = s_stop_levels;
+    out->enable_mask = s_control.enable_mask;
+    out->flags = s_control.flags |
+        (s_control.fault ? RT_MOTOR_FLAG_OUTPUT_FAULT : 0) |
+        (s_control.estop ? RT_MOTOR_FLAG_ESTOP : 0) |
+        (!s_control.protocol_ok ? RT_MOTOR_FLAG_PROTOCOL_BLOCKED : 0) |
+        (!s_control.ever_armed ? RT_MOTOR_FLAG_NEVER_ARMED : 0);
+    if (!s_control.enable_mask) out->flags &= ~RT_MOTOR_FLAG_ENABLED;
+    out->cmd_age_ms = s_control.have_command ? s_control.cmd_age_ms : 65535;
+    out->configured_mask = s_control.cfg.configured_mask;
+    out->selftest_passed = s_passed;
+    out->selftest_failed = s_failed;
+    out->rejected = s_control.rejected;
+    out->output_errors = s_output_errors;
     portEXIT_CRITICAL(&s_lock);
 }

@@ -19,10 +19,45 @@ menu "Retriever"
 
     menu "Moteurs (banc)"
 
+        choice RETRIEVER_MOTION_ROLE
+            prompt "Profil du noeud"
+            default RETRIEVER_ROLE_BENCH4
+            config RETRIEVER_ROLE_BENCH4
+                bool "Banc : un ESP pour jusqu'a quatre roues"
+            config RETRIEVER_ROLE_FRONT
+                bool "Avant : m0 gauche, m1 droite"
+            config RETRIEVER_ROLE_REAR
+                bool "Arriere : m2 gauche, m3 droite"
+        endchoice
+
+        config RETRIEVER_MOTOR_LOGIC_INVERTED
+            bool "DIR/STOP via NMOS externe inversant"
+            default n
+            help
+                Non : translateur externe non inversant, GPIO en drain ouvert
+                cote 3,3 V. Oui : grille NMOS externe, GPIO en push-pull.
+                Un GPIO ESP32 ne doit JAMAIS etre tire a 5 V, meme en drain ouvert.
+
+        config RETRIEVER_MOTOR_DUTY_LIMIT_MILLI
+            int "Limite de consigne du banc (milliemes)"
+            range 50 1000
+            default 250
+
+        config RETRIEVER_MOTOR_REVERSE_DEADTIME_MS
+            int "Pause a zero avant inversion DIR (ms)"
+            range 100 5000
+            default 250
+            help
+                Delai electrique, pas une preuve d'immobilite mecanique.
+                Sans Hall, attendre l'arret de la roue avant inversion.
+
+
         config RETRIEVER_MOTOR_COUNT
             int "Nombre de moteurs cables"
-            range 1 4
-            default 3
+            range 1 4 if RETRIEVER_ROLE_BENCH4
+            range 1 2 if !RETRIEVER_ROLE_BENCH4
+            default 3 if RETRIEVER_ROLE_BENCH4
+            default 2
             help
                 Les moteurs 0 .. N-1 sont pilotes ; les autres sont ignores
                 meme si une consigne arrive pour eux. Le protocole, la table

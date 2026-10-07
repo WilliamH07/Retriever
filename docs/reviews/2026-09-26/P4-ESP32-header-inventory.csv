@@ -1,0 +1,39 @@
+Header,Broche,Nom natif,GPIO ESP32,Net actuel,Restriction pour revue,Source
+H1,1,CLK,6,,mémoire — réservé,netlist native P4_CAN 2026-09-26
+H1,2,SD0,7,,mémoire — réservé,netlist native P4_CAN 2026-09-26
+H1,3,SD1,8,,mémoire — réservé,netlist native P4_CAN 2026-09-26
+H1,4,P15,15,,GPIO disponible sous réserve de fonction ; strapping,netlist native P4_CAN 2026-09-26
+H1,5,P2,2,,boot réservé,netlist native P4_CAN 2026-09-26
+H1,6,P0,0,,boot réservé,netlist native P4_CAN 2026-09-26
+H1,7,P4,4,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H1,8,P16,16,GPIO16,BMS gelé,netlist native P4_CAN 2026-09-26
+H1,9,P17,17,GPIO17,BMS gelé,netlist native P4_CAN 2026-09-26
+H1,10,P5,5,,GPIO disponible sous réserve de fonction ; strapping,netlist native P4_CAN 2026-09-26
+H1,11,P18,18,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H1,12,P19,19,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H1,13,GND,,GND,alimentation/masse/reset,netlist native P4_CAN 2026-09-26
+H1,14,P21,21,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H1,15,RX,3,,console/flash USB,netlist native P4_CAN 2026-09-26
+H1,16,TX,1,,console/flash USB,netlist native P4_CAN 2026-09-26
+H1,17,P22,22,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H1,18,P23,23,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H1,19,GND,,GND,alimentation/masse/reset,netlist native P4_CAN 2026-09-26
+H2,1,5V,,,alimentation/masse/reset,netlist native P4_CAN 2026-09-26
+H2,2,CMD,11,,mémoire — réservé,netlist native P4_CAN 2026-09-26
+H2,3,SD3,10,,mémoire — réservé,netlist native P4_CAN 2026-09-26
+H2,4,SD2,9,,mémoire — réservé,netlist native P4_CAN 2026-09-26
+H2,5,P13,13,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,6,GND,,GND,alimentation/masse/reset,netlist native P4_CAN 2026-09-26
+H2,7,P12,12,,strapping sensible réservé,netlist native P4_CAN 2026-09-26
+H2,8,P14,14,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,9,P27,27,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,10,P26,26,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,11,P25,25,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,12,P33,33,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,13,P32,32,,GPIO disponible sous réserve de fonction,netlist native P4_CAN 2026-09-26
+H2,14,P35,35,,"entrée seule, rappel externe",netlist native P4_CAN 2026-09-26
+H2,15,P34,34,,"entrée seule, rappel externe",netlist native P4_CAN 2026-09-26
+H2,16,SVN,39,,"entrée seule, rappel externe ; vérifier erratum ADC/sommeil radio",netlist native P4_CAN 2026-09-26
+H2,17,SVP,36,,"entrée seule, rappel externe ; vérifier erratum ADC/sommeil radio",netlist native P4_CAN 2026-09-26
+H2,18,EN,,,alimentation/masse/reset,netlist native P4_CAN 2026-09-26
+H2,19,3V3,,+3V3,alimentation/masse/reset,netlist native P4_CAN 2026-09-26

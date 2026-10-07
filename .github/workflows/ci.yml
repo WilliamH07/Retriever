@@ -32,6 +32,9 @@ jobs:
       - name: Tests hôte du firmware
         run: make -C firmware/test
 
+      - name: Tests des outils de banc
+        run: python3 -m unittest discover -s tools/tests
+
       - name: Accord entre les trois implémentations du protocole
         run: python3 tools/check_protocol_sync.py
 
@@ -49,6 +52,24 @@ jobs:
           esp_idf_version: v5.5
           target: esp32
           path: firmware/esp32_safety
+
+  motion:
+    name: MOTION ${{ matrix.role }} / ${{ matrix.transport }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [front, rear, bench4]
+        transport: [serial, can]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5
+          target: esp32
+          command: python3 tools/flash_motion.py ${{ matrix.role }} --transport ${{ matrix.transport }}
 
   ros:
     name: Workspace ROS 2 Jazzy
