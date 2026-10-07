@@ -1,12 +1,13 @@
 # Firmware
 
-Three ESP32 nodes. Today only one of them has code: `esp32_safety`, running the
-B1 bench described in [`docs/architecture/13-architecture-logicielle-liaison.md`](../docs/architecture/13-architecture-logicielle-liaison.md).
+Three ESP32 nodes in the target architecture. The IMU bench runs on
+`esp32_safety`; the motor bench now has front, rear and single-ESP profiles.
+Setup and commissioning: [`esp32_motion/README.md`](esp32_motion/README.md).
 
 | Node | Role | State |
 |---|---|---|
 | `esp32_safety/` | Safety state machine, current budget, watchdogs, precharge, contactor, BMS telemetry, and the BNO085 IMU. | **IMU chain only.** No safety function is implemented, and none can be validated on the serial bench. |
-| `esp32_motion/` | Two units. Speed loop at 200 Hz, Hall decoding on the hardware pulse counters, per wheel limits. | Not started. |
+| `esp32_motion/` | Front/rear units, or one bench unit controlling up to four ZS-X11H drivers. | PWM/RC bench, software self-test, gated arming, watchdog and telemetry. Hall feedback and final PCB DAC/safety drivers remain to implement. |
 
 ## Layout
 
@@ -17,7 +18,8 @@ components/    shared between every node
   retriever_link/       transport-agnostic link layer
     portable/           C99, no ESP-IDF: compiled by the firmware AND by ROS 2
   retriever_imu/        BNO085 behind a four-function interface
-esp32_safety/  the ESP-IDF project
+esp32_safety/  the IMU ESP-IDF project
+esp32_motion/  common front/rear/four-wheel ESP-IDF project
 test/          host tests — no hardware, no ESP-IDF, no ROS
 ```
 

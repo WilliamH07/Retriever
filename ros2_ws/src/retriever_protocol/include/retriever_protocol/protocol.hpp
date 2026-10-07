@@ -3,8 +3,8 @@
 //
 //  Source     : firmware/protocol/protocol.yaml
 //  Générateur : firmware/protocol/generate.py
-//  Version    : 0.1.0
-//  Hash       : 0x670192A7
+//  Version    : 0.2.0
+//  Hash       : 0x61ADA43C
 //
 //  Enveloppe C++17 au-dessus de l'en-tête C. Le code de sérialisation n'est
 //  PAS dupliqué : ce fichier inclut retriever_protocol.h, exactement le même
@@ -226,6 +226,23 @@ inline std::optional<MotorEnable> unpack_motor_enable(const Frame & f)
     return m;
 }
 
+// MOTOR_SESSION — id 0x112, dlc 6, émetteur HOST [bench]
+using MotorSession = ::rt_motor_session_t;
+inline constexpr std::uint16_t kMotorSessionId = RT_ID_MOTOR_SESSION;
+inline constexpr std::uint8_t  kMotorSessionDlc = RT_DLC_MOTOR_SESSION;
+inline Frame pack(const MotorSession & m)
+{
+    Frame f{};
+    ::rt_motor_session_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorSession> unpack_motor_session(const Frame & f)
+{
+    MotorSession m{};
+    if (!::rt_motor_session_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
 // MOTOR_STATE — id 0x1A0, dlc 8, émetteur MOTION_FRONT [bench]
 using MotorState = ::rt_motor_state_t;
 inline constexpr std::uint16_t kMotorStateId = RT_ID_MOTOR_STATE;
@@ -240,6 +257,57 @@ inline std::optional<MotorState> unpack_motor_state(const Frame & f)
 {
     MotorState m{};
     if (!::rt_motor_state_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
+// MOTOR_STATE_REAR — id 0x1A1, dlc 8, émetteur MOTION_REAR [bench]
+using MotorStateRear = ::rt_motor_state_rear_t;
+inline constexpr std::uint16_t kMotorStateRearId = RT_ID_MOTOR_STATE_REAR;
+inline constexpr std::uint8_t  kMotorStateRearDlc = RT_DLC_MOTOR_STATE_REAR;
+inline Frame pack(const MotorStateRear & m)
+{
+    Frame f{};
+    ::rt_motor_state_rear_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorStateRear> unpack_motor_state_rear(const Frame & f)
+{
+    MotorStateRear m{};
+    if (!::rt_motor_state_rear_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
+// MOTOR_DIAG_FRONT — id 0x1A2, dlc 8, émetteur MOTION_FRONT [bench]
+using MotorDiagFront = ::rt_motor_diag_front_t;
+inline constexpr std::uint16_t kMotorDiagFrontId = RT_ID_MOTOR_DIAG_FRONT;
+inline constexpr std::uint8_t  kMotorDiagFrontDlc = RT_DLC_MOTOR_DIAG_FRONT;
+inline Frame pack(const MotorDiagFront & m)
+{
+    Frame f{};
+    ::rt_motor_diag_front_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorDiagFront> unpack_motor_diag_front(const Frame & f)
+{
+    MotorDiagFront m{};
+    if (!::rt_motor_diag_front_unpack(&f, &m)) return std::nullopt;
+    return m;
+}
+
+// MOTOR_DIAG_REAR — id 0x1A3, dlc 8, émetteur MOTION_REAR [bench]
+using MotorDiagRear = ::rt_motor_diag_rear_t;
+inline constexpr std::uint16_t kMotorDiagRearId = RT_ID_MOTOR_DIAG_REAR;
+inline constexpr std::uint8_t  kMotorDiagRearDlc = RT_DLC_MOTOR_DIAG_REAR;
+inline Frame pack(const MotorDiagRear & m)
+{
+    Frame f{};
+    ::rt_motor_diag_rear_pack(&m, &f);
+    return f;
+}
+inline std::optional<MotorDiagRear> unpack_motor_diag_rear(const Frame & f)
+{
+    MotorDiagRear m{};
+    if (!::rt_motor_diag_rear_unpack(&f, &m)) return std::nullopt;
     return m;
 }
 
@@ -600,7 +668,7 @@ inline std::optional<HeartbeatMotionFront> unpack_heartbeat_motion_front(const F
     return m;
 }
 
-// HEARTBEAT_MOTION_REAR — id 0x703, dlc 8, émetteur MOTION_REAR [planned]
+// HEARTBEAT_MOTION_REAR — id 0x703, dlc 8, émetteur MOTION_REAR [bench]
 using HeartbeatMotionRear = ::rt_heartbeat_motion_rear_t;
 inline constexpr std::uint16_t kHeartbeatMotionRearId = RT_ID_HEARTBEAT_MOTION_REAR;
 inline constexpr std::uint8_t  kHeartbeatMotionRearDlc = RT_DLC_HEARTBEAT_MOTION_REAR;

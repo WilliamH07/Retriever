@@ -15,6 +15,7 @@ Copyright (c) 2026 William Hanczyk — Apache License 2.0
 from __future__ import annotations
 
 import struct
+import importlib.util
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -146,6 +147,13 @@ class FrameDef:
 class Protocol:
     def __init__(self, path: Path = PROTOCOL_YAML):
         doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        # Reuse the semantic model, so tooling and firmware gate on the same
+        # hash even when protocol.yaml changes before headers are regenerated.
+        spec = importlib.util.spec_from_file_location(
+            "retriever_protocol_generator", REPO / "firmware" / "protocol" / "generate.py")
+        generator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generator)
+        self.hash = generator.Model(doc).hash32()
         self.meta = doc["meta"]
         self.enums = doc["enums"]
         self.frames: dict[int, FrameDef] = {}

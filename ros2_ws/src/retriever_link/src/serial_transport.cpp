@@ -5,8 +5,6 @@
 
 #include "retriever_link/serial_transport.hpp"
 
-#include "rclcpp/rclcpp.hpp"
-
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <poll.h>
@@ -20,6 +18,8 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+
+#include "rclcpp/rclcpp.hpp"
 
 namespace retriever::link
 {
@@ -50,7 +50,7 @@ SerialTransport::SerialTransport(std::string device, int baudrate, bool reset_on
   rt_frame_decoder_init(&decoder_);
 }
 
-SerialTransport::~SerialTransport() { close(); }
+SerialTransport::~SerialTransport() {close();}
 
 std::string SerialTransport::describe() const
 {

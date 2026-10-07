@@ -19,14 +19,14 @@
 #  une divergence entre un nœud et le calculateur est un refus d'armement, pas
 #  un avertissement (§K.2 [P3]).
 #
-#  Version : 0.1.0 — 11 septembre 2026
+#  Version : 0.2.0 — 4 octobre 2026
 #  Référence : dossier d'architecture §F.3 (plan d'adressage), §AB (couche de
 #  liaison). Les écarts par rapport au §F.3 sont listés dans §AB.7.
 # =============================================================================
 
 meta:
-  version: "0.1.0"
-  date: "2026-09-11"
+  version: "0.2.0"
+  date: "2026-10-04"
   endianness: little          # Intel. Aucun échange d'octets sur ESP32 ni x86.
   id_bits: 11                 # CAN 2.0A. Conservé tel quel sur le transport série.
   max_payload: 8              # Contrainte CAN. Volontairement conservée en série.
@@ -133,7 +133,21 @@ enums:
       ENABLED:      0x01   # au moins un moteur autorisé
       CMD_TIMEOUT:  0x02   # aucune MOTOR_CMD depuis plus de 500 ms → consignes à zéro
       ESTOP:        0x04   # arrêt logiciel reçu, il faut ré-armer
-      NEVER_ARMED:  0x08   # aucune MOTOR_ENABLE reçue depuis le démarrage
+      NEVER_ARMED:  0x08   # aucune autorisation non nulle acceptée depuis le démarrage
+      OUTPUT_FAULT: 0x10   # self-test ou écriture périphérique échouée, redémarrage requis
+      PROTOCOL_BLOCKED: 0x20 # MOTOR_SESSION avec hash concordant obligatoire
+      REVERSING:    0x40   # pause à zéro avant changement de DIR
+      LIMITED:      0x80   # consigne réduite par la limite du banc
+
+  motor_selftest:
+    doc: "Contrôles logiciels sans mouvement. Ne prouvent ni VR au connecteur ni la rotation."
+    bitfield: true
+    values:
+      CONFIG: 0x01
+      GPIO:   0x02
+      PWM:    0x04
+      TASK:   0x08
+      LINK:   0x10
 
   log_level:
     doc: "Niveau d'un fragment de journal tunnellisé (§AC.5)."
@@ -242,16 +256,10 @@ frames:
 
   # --- Puissance et batterie -------------------------------------------------
 
-  # --- Banc moteurs : un seul nœud, jusqu'à quatre moteurs -------------------
-  #
-  #  ⚠️ Trames de BANC. Le dossier prévoit deux nœuds MOTION à deux roues
-  #  chacun (CMD_WHEELS_*, FB_WHEELS_*) commandés en vitesse par ros2_control.
-  #  Ici : un seul ESP32, une consigne en RAPPORT CYCLIQUE et non en vitesse,
-  #  aucun retour Hall — la carte variateur gère son propre asservissement.
-  #  C'est ce qu'il faut pour faire tourner quatre moteurs depuis Foxglove
-  #  avant que la carte motor_interface n'existe. Les trames sont dimensionnées
-  #  pour quatre moteurs dès maintenant : ajouter le quatrième ne change pas
-  #  le protocole, seulement une ligne dans board_config.h du firmware.
+  # --- Banc moteurs : un ESP quatre roues OU deux ESP deux roues ------------
+  # m0 = avant gauche, m1 = avant droite, m2 = arrière gauche, m3 = arrière droite.
+  # Rapport cyclique signé, pas une vitesse mesurée ni un asservissement ESP.
+  # Chaque nœud applique seulement ses roues ; les retours ont des IDs distincts.
 
   - name: MOTOR_CMD
     id: 0x110
@@ -259,8 +267,8 @@ frames:
     rate_hz: 50
     impl: bench
     doc: >
-      Consigne par moteur, en rapport cyclique signé : -1 = pleine vitesse
-      arrière, +1 = pleine vitesse avant, 0 = arrêt. Le signe fixe DIR, la
+      Consigne par moteur, en rapport cyclique signé : -1 = pleine consigne
+      arrière, +1 = pleine consigne avant, 0 = arrêt. Le signe fixe DIR, la
       valeur absolue fixe VR. ⚠️ Doit être RÉPÉTÉE à 50 Hz : le nœud ramène
       tout à zéro s'il ne reçoit rien pendant 500 ms. Ce n'est pas un
       choix d'ergonomie, c'est ce qui arrête les roues quand le PC plante.
@@ -279,9 +287,23 @@ frames:
       Autorise ou interdit chaque moteur. Au démarrage, tout est interdit :
       aucune consigne ne sort avant une MOTOR_ENABLE explicite. ⚠️ magic 0xEB —
       une trame corrompue ne doit pas pouvoir mettre une roue en marche.
+      Armement accepté seulement après MOTOR_SESSION concordante et consigne
+      fraîche à zéro pour les roues locales. Une perte de commande désarme :
+      recevoir de nouvelles commandes ne redémarre pas les roues.
     fields:
       - {name: enable_mask, type: u8, doc: "b0..b3 : moteur 0..3 autorisé"}
       - {name: magic,       type: u8, doc: "0xEB"}
+
+  - name: MOTOR_SESSION
+    id: 0x112
+    sender: HOST
+    rate_hz: 1
+    impl: bench
+    doc: "Validation du protocole avant armement. Ne désarme pas une session déjà concordante."
+    fields:
+      - {name: target, type: u8, enum: node_id}
+      - {name: protocol_hash, type: u32}
+      - {name: magic, type: u8, doc: "0xB2"}
 
   - name: MOTOR_STATE
     id: 0x1A0
@@ -289,7 +311,7 @@ frames:
     rate_hz: 10
     impl: bench
     doc: >
-      Ce que le nœud applique réellement, pour l'afficher en face de ce qui
+      Consigne électrique demandée aux sorties du nœud avant (ou banc quatre roues), pour l'afficher en face de ce qui
       a été demandé. `applied_m*` est la consigne après chien de garde et
       masque d'autorisation, en centièmes : si elle diffère de la commande,
       c'est qu'une sécurité est intervenue, et `flags` dit laquelle.
@@ -301,6 +323,37 @@ frames:
       - {name: enable_mask, type: u8}
       - {name: flags,       type: u8, enum: motor_flag}
       - {name: cmd_age_ms,  type: u16, unit: ms, doc: "Âge de la dernière MOTOR_CMD, saturé à 65535"}
+  - name: MOTOR_STATE_REAR
+    id: 0x1A1
+    sender: MOTION_REAR
+    rate_hz: 10
+    impl: bench
+    like: MOTOR_STATE
+
+  - name: MOTOR_DIAG_FRONT
+    id: 0x1A2
+    sender: MOTION_FRONT
+    rate_hz: 10
+    impl: bench
+    doc: >
+      Self-test sans mouvement : bits réussis/échoués et masque des roues
+      configurées (pas une détection de présence). Compteurs saturés à 65535.
+      Aucun Hall, courant ou température n'est simulé.
+    fields:
+      - {name: passed, type: u8, enum: motor_selftest}
+      - {name: failed, type: u8, enum: motor_selftest}
+      - {name: configured_mask, type: u8}
+      - {name: flags, type: u8, enum: motor_flag}
+      - {name: rejected, type: u16}
+      - {name: output_errors, type: u16}
+
+  - name: MOTOR_DIAG_REAR
+    id: 0x1A3
+    sender: MOTION_REAR
+    rate_hz: 10
+    impl: bench
+    like: MOTOR_DIAG_FRONT
+
   - name: POWER
     id: 0x200
     sender: SAFETY
@@ -595,5 +648,5 @@ frames:
     id: 0x703
     sender: MOTION_REAR
     rate_hz: 10
-    impl: planned
+    impl: bench
     like: HEARTBEAT_SAFETY

@@ -1,214 +1,177 @@
-/* ===========================================================================
- *  main.c — nœud MOTION de Retriever, version BANC
- *
- *  Ce que fait ce firmware :
- *    - reçoit MOTOR_CMD (50 Hz) et MOTOR_ENABLE depuis le calculateur
- *    - pilote jusqu'à quatre variateurs ZS-X11H : VR par PWM filtrée,
- *      DIR et STOP en drain ouvert
- *    - ramène tout à zéro si le calculateur se tait 500 ms
- *    - publie MOTOR_STATE (10 Hz) et son heartbeat
- *
- *  Ce qu'il ne fait PAS, et pourquoi :
- *    - aucun asservissement de vitesse : la carte variateur a le sien, et le
- *      retour Hall vers l'ESP32 est une étape à part (§Z.3)
- *    - aucun freinage : le frein est actif haut sur EL et n'est pas câblé au
- *      banc. Le freinage de sécurité est l'affaire de la carte motor_interface
- *      (§Z.1.2), pas d'un GPIO d'ESP32
- *    - aucune fonction de sécurité au sens du dossier : la liaison série n'a
- *      ni arbitrage ni confinement de faute (§AB.5). Le chien de garde de
- *      consigne est une commodité de banc, pas un niveau d'arrêt.
- *
- *  ⚠️ ROUES EN L'AIR. Tant que ce firmware tourne sur le banc, le châssis est
- *  sur cales. Un curseur Foxglove lâché au mauvais moment envoie 60 % de la
- *  vitesse maximale à un moteur-roue de 35 kg.
- *
- *  Copyright (c) 2026 William Hanczyk — Apache License 2.0
- * =========================================================================== */
-
+/* Retriever MOTION bench, common front/rear/four-wheel image source. Apache-2.0. */
 #include <inttypes.h>
 #include <string.h>
-
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
 #include "board_config.h"
 #include "motors.h"
 #include "retriever_link/link.h"
 #include "retriever_link/link_log.h"
-#include "retriever_protocol.h"
 
 static const char *TAG = "motion";
-
-#define HOUSE_TASK_PRIO 5
-
-static uint32_t s_cmd_frames;
-static uint32_t s_cmd_rejected;
-
-/* --------------------------------------------------------------------------
- *  Réception — on DÉPOSE, la tâche moteur applique
- * ----------------------------------------------------------------------- */
+static uint8_t s_app_passed, s_app_failed;
 
 static bool on_frame(const rt_frame_t *f, void *user)
 {
     (void)user;
-
     switch (f->id) {
     case RT_ID_MOTOR_CMD: {
         rt_motor_cmd_t c;
-        if (!rt_motor_cmd_unpack(f, &c)) {
-            s_cmd_rejected++;
-            return true;
-        }
-        const float duty[RT_MOTORS_MAX] = {c.m0, c.m1, c.m2, c.m3};
-        rt_motors_command(duty);
-        s_cmd_frames++;
+        if (!rt_motor_cmd_unpack(f, &c)) { rt_motors_reject(); return true; }
+        const float duty[4] = {c.m0, c.m1, c.m2, c.m3};
+        (void)rt_motors_command(duty);
         return true;
     }
-
     case RT_ID_MOTOR_ENABLE: {
         rt_motor_enable_t e;
         if (!rt_motor_enable_unpack(f, &e) || e.magic != 0xEBu) {
-            /* Le garde n'est pas décoratif : une trame corrompue dont le CRC
-             * passe ne doit pas pouvoir mettre une roue en marche. */
-            s_cmd_rejected++;
-            ESP_LOGW(TAG, "MOTOR_ENABLE sans garde, ignoree");
-            return true;
+            rt_motors_reject(); return true;
         }
-        rt_motors_enable(e.enable_mask);
+        (void)rt_motors_enable(e.enable_mask);
         return true;
     }
-
+    case RT_ID_MOTOR_SESSION: {
+        rt_motor_session_t s;
+        if (!rt_motor_session_unpack(f, &s) || s.magic != 0xB2u) {
+            rt_motors_reject(); return true;
+        }
+        if (s.target == BOARD_NODE_ID) (void)rt_motors_session(s.protocol_hash);
+        return true;
+    }
     case RT_ID_ESTOP_REQUEST: {
-        rt_estop_request_t r;
-        if (rt_estop_request_unpack(f, &r) && r.magic == 0xE5u) {
-            rt_motors_estop();
-        }
+        rt_estop_request_t e;
+        if (rt_estop_request_unpack(f, &e) && e.magic == 0xE5u) rt_motors_estop();
+        else rt_motors_reject();
         return true;
     }
-
     case RT_ID_LINK_PING: {
-        rt_link_ping_t ping;
-        if (!rt_link_ping_unpack(f, &ping) || ping.target != BOARD_NODE_ID) {
-            return true;
-        }
-        rt_link_pong_t pong = {
-            .source = BOARD_NODE_ID, .seq = ping.seq, .t_tx_us = ping.t_tx_us,
-        };
+        rt_link_ping_t p;
+        if (!rt_link_ping_unpack(f, &p) || p.target != BOARD_NODE_ID) return true;
+        const rt_link_pong_t pong = {.source = BOARD_NODE_ID, .seq = p.seq, .t_tx_us = p.t_tx_us};
         rt_frame_t out;
         rt_link_pong_pack(&pong, &out);
         rt_link_send_urgent(&out);
         return true;
     }
-
-    default:
-        return false;   /* file de réception, vidée par l'entretien */
+    default: return false;
     }
 }
 
-/* --------------------------------------------------------------------------
- *  Entretien : état moteur à 10 Hz, heartbeat, journal
- * ----------------------------------------------------------------------- */
+static uint16_t sat16(uint32_t v) { return v > 65535 ? 65535 : (uint16_t)v; }
 
 static void housekeeping_task(void *arg)
 {
     (void)arg;
-    const int64_t t0 = esp_timer_get_time();
-    int ticks = 0;
-
+    /* Publishing READY before installing the RX hook lets the host send its
+     * session to a receiver that still drops commands during startup. */
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    TickType_t wake = xTaskGetTickCount();
+    unsigned ticks = 0;
     for (;;) {
         rt_frame_t f;
-        while (rt_link_recv(&f, 0) == ESP_OK) {
-            /* TIME_SYNC est absorbée par la liaison ; le reste ne nous concerne pas. */
-        }
-
-        rt_motors_state_t m;
-        rt_motors_get_state(&m);
-        const rt_motor_state_t ms = {
-            .applied_m0 = m.applied[0],
-            .applied_m1 = m.applied[1],
-            .applied_m2 = m.applied[2],
-            .applied_m3 = m.applied[3],
-            .enable_mask = m.enable_mask,
-            .flags = m.flags,
-            .cmd_age_ms = (uint16_t)m.cmd_age_ms,
-        };
-        rt_frame_t msf;
-        rt_motor_state_pack(&ms, &msf);
-        rt_link_send(&msf, 0);
-
+        /* Bound draining so traffic from other nodes cannot starve diagnostics. */
+        for (int i = 0; i < 32 && rt_link_recv(&f, 0) == ESP_OK; ++i) {}
         rt_link_stats_t st;
         rt_link_get_stats(&st);
-        const uint32_t errs = st.framing.crc_errors + st.framing.format_errors + st.tx_dropped;
-        const rt_heartbeat_motion_front_t hb = {
-            .state = (m.flags & RT_MOTOR_FLAG_ENABLED) ? RT_NODE_STATE_ACTIVE : RT_NODE_STATE_READY,
-            .uptime_s = (uint16_t)((esp_timer_get_time() - t0) / 1000000),
-            .err_count = (uint8_t)(errs > 255u ? 255u : errs),
-            .protocol_hash = RT_PROTOCOL_HASH,
+        if (st.bus_off) rt_motors_estop(); /* Recovery never re-arms outputs. */
+        rt_motors_state_t m;
+        rt_motors_get_state(&m);
+        rt_motor_state_t state = {
+            .applied_m0 = m.applied[0], .applied_m1 = m.applied[1],
+            .applied_m2 = m.applied[2], .applied_m3 = m.applied[3],
+            .enable_mask = m.enable_mask, .flags = m.flags, .cmd_age_ms = sat16(m.cmd_age_ms),
         };
-        rt_frame_t hbf;
-        rt_heartbeat_motion_front_pack(&hb, &hbf);
-        rt_link_send(&hbf, 0);
-
-        if (++ticks % 100 == 0) {   /* toutes les 10 s */
-            ESP_LOGI(TAG,
-                     "cmd=%" PRIu32 " rejetees=%" PRIu32 " masque=0x%02x flags=0x%02x age=%" PRIu32
-                     "ms  applique=[%.2f %.2f %.2f %.2f]  rx=%" PRIu32 " crc=%" PRIu32,
-                     s_cmd_frames, s_cmd_rejected, (unsigned)m.enable_mask,
-                     (unsigned)m.flags, m.cmd_age_ms, (double)m.applied[0],
-                     (double)m.applied[1], (double)m.applied[2], (double)m.applied[3],
-                     st.rx_frames, st.framing.crc_errors);
+        rt_motor_state_pack(&state, &f);
+#if CONFIG_RETRIEVER_ROLE_REAR
+        f.id = RT_ID_MOTOR_STATE_REAR; /* Identical layout, distinct CAN arbitration ID. */
+#endif
+        rt_link_send(&f, 0);
+        const rt_motor_diag_front_t diag = {
+            .passed = m.selftest_passed | s_app_passed,
+            .failed = m.selftest_failed | s_app_failed,
+            .configured_mask = m.configured_mask, .flags = m.flags,
+            .rejected = sat16(m.rejected), .output_errors = sat16(m.output_errors),
+        };
+        rt_motor_diag_front_pack(&diag, &f);
+#if CONFIG_RETRIEVER_ROLE_REAR
+        f.id = RT_ID_MOTOR_DIAG_REAR;
+#endif
+        rt_link_send(&f, 0);
+        const uint64_t errors = (uint64_t)st.framing.crc_errors + st.framing.format_errors +
+            st.framing.overflows + st.rx_dropped + st.tx_dropped + st.bus_errors +
+            m.rejected + m.output_errors;
+        const bool fault = diag.failed || (m.flags & RT_MOTOR_FLAG_OUTPUT_FAULT);
+        const bool degraded = st.bus_off || (m.flags & RT_MOTOR_FLAG_ESTOP) ||
+            ((m.flags & RT_MOTOR_FLAG_CMD_TIMEOUT) && !(m.flags & RT_MOTOR_FLAG_NEVER_ARMED));
+        const rt_heartbeat_motion_front_t hb = {
+            .state = fault ? RT_NODE_STATE_FAULT : (degraded ? RT_NODE_STATE_DEGRADED :
+                ((m.flags & RT_MOTOR_FLAG_ENABLED) ? RT_NODE_STATE_ACTIVE : RT_NODE_STATE_READY)),
+            .uptime_s = (uint16_t)(esp_timer_get_time() / 1000000),
+            .err_count = errors > 255 ? 255 : (uint8_t)errors, .protocol_hash = RT_PROTOCOL_HASH,
+        };
+        rt_heartbeat_motion_front_pack(&hb, &f);
+#if CONFIG_RETRIEVER_ROLE_REAR
+        f.id = RT_ID_HEARTBEAT_MOTION_REAR;
+#endif
+        rt_link_send(&f, 0);
+        if (++ticks % 10 == 0) {
+            ESP_LOGI(TAG, "%s roues=0x%02x selftest=%02x/%02x masque=%02x flags=%02x age=%" PRIu32
+                     "ms rejetees=%" PRIu32 " erreurs-sortie=%" PRIu32,
+                     BOARD_ROLE_NAME, m.configured_mask, diag.passed, diag.failed,
+                     m.enable_mask, m.flags, m.cmd_age_ms, m.rejected, m.output_errors);
+            ESP_LOGI(TAG, "readback pwm=[%u,%u,%u,%u] stop_gpio_high=0x%02x",
+                     m.pwm_readback[0], m.pwm_readback[1], m.pwm_readback[2], m.pwm_readback[3],
+                     m.stop_gpio_high);
         }
-
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelayUntil(&wake, pdMS_TO_TICKS(100));
     }
 }
 
-/* --------------------------------------------------------------------------
- *  Démarrage
- * ----------------------------------------------------------------------- */
-
 void app_main(void)
 {
-    /* Les moteurs D'ABORD, à l'état sûr, avant même que la liaison n'existe :
-     * STOP tiré bas, PWM à zéro, rien d'autorisé. Si tout le reste échoue,
-     * les roues sont libres et immobiles. */
-    const rt_motor_pins_t table[BOARD_MOTOR_TABLE_SIZE] = BOARD_MOTOR_TABLE;
-    rt_motors_config_t motors = {
-        .count = CONFIG_RETRIEVER_MOTOR_COUNT,
-        .pwm_freq_hz = BOARD_PWM_FREQ_HZ,
-        .pwm_resolution_bits = BOARD_PWM_RESOLUTION_BITS,
+    const rt_motor_pins_t pins[4] = BOARD_MOTOR_TABLE;
+    rt_motors_config_t cfg = {
+        .count = CONFIG_RETRIEVER_MOTOR_COUNT, .first_motor = BOARD_FIRST_MOTOR,
+        .pwm_freq_hz = BOARD_PWM_FREQ_HZ, .pwm_resolution_bits = BOARD_PWM_RESOLUTION_BITS,
+#if CONFIG_RETRIEVER_MOTOR_LOGIC_INVERTED
+        .logic_inverted = true,
+#endif
         .cmd_timeout_ms = CONFIG_RETRIEVER_MOTOR_CMD_TIMEOUT_MS,
-        .slew_per_s = (float)CONFIG_RETRIEVER_MOTOR_SLEW_PER_S / 1000.0f,
+        .reverse_deadtime_ms = CONFIG_RETRIEVER_MOTOR_REVERSE_DEADTIME_MS,
+        .slew_per_s = CONFIG_RETRIEVER_MOTOR_SLEW_PER_S / 1000.0f,
+        .duty_limit = CONFIG_RETRIEVER_MOTOR_DUTY_LIMIT_MILLI / 1000.0f,
     };
-    memcpy(motors.pins, table, sizeof(motors.pins));
-    ESP_ERROR_CHECK(rt_motors_init(&motors));
-
+    memcpy(cfg.pins, pins, sizeof(pins));
+    const esp_err_t motor_err = rt_motors_init(&cfg); /* Zero outputs before communications. */
     rt_link_config_t link = RT_LINK_CONFIG_BENCH_DEFAULT();
-    link.uart_num = BOARD_LINK_UART_NUM;
-    link.uart_tx_gpio = BOARD_LINK_UART_TX;
-    link.uart_rx_gpio = BOARD_LINK_UART_RX;
-    link.uart_baud = BOARD_LINK_BAUD;
-    link.twai_tx_gpio = BOARD_CAN_TX;
-    link.twai_rx_gpio = BOARD_CAN_RX;
     link.node_id = BOARD_NODE_ID;
 #if CONFIG_RETRIEVER_LINK_BACKEND_TWAI
     link.backend = RT_LINK_BACKEND_TWAI;
-#else
-    link.backend = RT_LINK_BACKEND_UART;
 #endif
-    ESP_ERROR_CHECK(rt_link_init(&link));
-    rt_link_set_rx_hook(on_frame, NULL);
-
-#if CONFIG_RETRIEVER_LINK_CONSOLE_TUNNEL
-    rt_link_log_install();
+    const esp_err_t link_err = rt_link_init(&link);
+    if (link_err != ESP_OK) {
+        rt_motors_estop();
+        ESP_LOGE(TAG, "liaison: %s; aucun armement possible", esp_err_to_name(link_err));
+        return;
+    }
+    s_app_passed |= RT_MOTOR_SELFTEST_LINK;
+#if CONFIG_RETRIEVER_LINK_CONSOLE_TUNNEL && !CONFIG_RETRIEVER_LINK_BACKEND_TWAI
+    rt_link_log_install(); /* Shared LOG ID is only appropriate on a point-to-point bench. */
 #endif
-
-    ESP_LOGI(TAG, "retriever motion (banc) — protocole %s (0x%08" PRIX32 "), %d moteur(s)",
-             RT_PROTOCOL_VERSION, (uint32_t)RT_PROTOCOL_HASH, CONFIG_RETRIEVER_MOTOR_COUNT);
-    ESP_LOGW(TAG, "ROUES EN L'AIR. Rien ne tourne avant une MOTOR_ENABLE.");
-
-    xTaskCreate(housekeeping_task, "house", 4096, NULL, HOUSE_TASK_PRIO, NULL);
+    ESP_LOGI(TAG, "motion %s: protocole %s 0x%08" PRIX32 "; init=%s",
+             BOARD_ROLE_NAME, RT_PROTOCOL_VERSION, (uint32_t)RT_PROTOCOL_HASH, esp_err_to_name(motor_err));
+    /* Start diagnostics even if the motor self-test failed. Never accept enable
+     * until both output and housekeeping tasks have been created. */
+    TaskHandle_t house_task = NULL;
+    if (xTaskCreate(housekeeping_task, "house", 4096, NULL, 5, &house_task) != pdPASS) {
+        s_app_failed |= RT_MOTOR_SELFTEST_TASK;
+        rt_motors_estop();
+        ESP_LOGE(TAG, "tache diagnostic absente: armement interdit");
+        return;
+    }
+    if (motor_err == ESP_OK) rt_link_set_rx_hook(on_frame, NULL);
+    xTaskNotifyGive(house_task);
 }

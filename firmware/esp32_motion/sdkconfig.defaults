@@ -27,3 +27,9 @@ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_BT_ENABLED=n
 
 # Le Wi-Fi n'est jamais initialisé par le firmware, pour les mêmes raisons.
+
+# Supervision de la tâche moteur : blocage -> panic/reset, sorties inhibées au boot.
+CONFIG_ESP_TASK_WDT_EN=y
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=2
+CONFIG_ESP_TASK_WDT_PANIC=y

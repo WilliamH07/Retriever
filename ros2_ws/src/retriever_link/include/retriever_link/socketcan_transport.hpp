@@ -1,3 +1,4 @@
+// Copyright 2026 William Hanczyk — Apache License 2.0
 // ===========================================================================
 //  socketcan_transport.hpp — transport CAN par SocketCAN
 //
