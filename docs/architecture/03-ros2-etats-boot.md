@@ -1,5 +1,7 @@
 # I. Architecture ROS 2 Jazzy
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 ## I.1 Nœuds retenus — et ceux que j'écarte
 
 Le cahier des charges propose 18 nœuds. Tous ne sont pas nécessaires, et certains sont déjà fournis par des paquets existants qu'il serait absurde de réécrire.

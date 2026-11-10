@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 660" width="960" height="660" role="img" aria-labelledby="t d">
+  <title id="t">Retriever system architecture</title>
+  <desc id="d">The X1 computer runs ROS 2 and talks to three ESP32 nodes over a CAN bus that also carries the hardware /SAFE line. Two MOTION nodes drive two hub motors each through motor_interface boards. The SAFETY node owns the power board. The battery feeds the motor drivers through the power board.</desc>
+  <style>
+    svg { --bg:#ffffff; --card:#f6f8fa; --line:#d0d7de; --fg:#1f2328; --mut:#59636e;
+          --blue:#0969da; --blueb:#ddf4ff; --green:#1a7f37; --greenb:#dafbe1;
+          --red:#cf222e; --redb:#ffebe9; --amber:#9a6700; --amberb:#fff8c5;
+          --purple:#8250df; --purpleb:#fbefff; }
+    @media (prefers-color-scheme: dark) {
+      svg { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --mut:#9198a1;
+            --blue:#4493f8; --blueb:#0d2847; --green:#3fb950; --greenb:#0f2d1a;
+            --red:#f85149; --redb:#3a1418; --amber:#d29922; --amberb:#33270a;
+            --purple:#a371f7; --purpleb:#2a1a4a; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--fg); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .h { font-size: 15px; font-weight: 600; }
+    .s { font-size: 12.5px; fill: var(--mut); }
+    .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; }
+    .bg { fill: var(--bg); stroke: var(--line); }
+    .card { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
+    .blue { fill: var(--blueb); stroke: var(--blue); stroke-width: 1.6; }
+    .green { fill: var(--greenb); stroke: var(--green); stroke-width: 1.6; }
+    .amber { fill: var(--amberb); stroke: var(--amber); stroke-width: 1.6; }
+    .purple { fill: var(--purpleb); stroke: var(--purple); stroke-width: 1.6; }
+    .w-blue { stroke: var(--blue); stroke-width: 2; fill: none; }
+    .w-green { stroke: var(--green); stroke-width: 2; fill: none; }
+    .w-red { stroke: var(--red); stroke-width: 2; fill: none; stroke-dasharray: 6 4; }
+    .w-amber { stroke: var(--amber); stroke-width: 3; fill: none; }
+    .w-mut { stroke: var(--mut); stroke-width: 1.6; fill: none; }
+    .w-purple { stroke: var(--purple); stroke-width: 2; fill: none; }
+    .bus-can { stroke: var(--green); stroke-width: 6; stroke-linecap: round; }
+    .bus-safe { stroke: var(--red); stroke-width: 3; stroke-dasharray: 10 6; stroke-linecap: round; }
+    .bus-pwr { stroke: var(--amber); stroke-width: 8; stroke-linecap: round; }
+    .t-blue { fill: var(--blue); } .t-green { fill: var(--green); } .t-red { fill: var(--red); }
+    .t-amber { fill: var(--amber); } .t-purple { fill: var(--purple); }
+  </style>
+
+  <rect class="bg" x="0.5" y="0.5" width="959" height="659" rx="14"/>
+
+  <!-- Operator -->
+  <rect class="card" x="330" y="22" width="300" height="50" rx="10"/>
+  <text class="h" x="480" y="44" text-anchor="middle">Operator console</text>
+  <text class="s" x="480" y="62" text-anchor="middle">Wi-Fi · no DDS over the radio link</text>
+  <path class="w-mut" d="M480 72 V100" stroke-dasharray="4 4"/>
+
+  <!-- Compute -->
+  <rect class="blue" x="250" y="100" width="460" height="96" rx="12"/>
+  <text class="tag t-blue" x="268" y="122">COMPUTE · NOT REAL TIME</text>
+  <text class="h" x="268" y="146">Youyeetoo X1 · Ubuntu 24.04 · ROS 2 Jazzy</text>
+  <text class="s" x="268" y="166">Nav2 · robot_localization (dual EKF) · ros2_control</text>
+  <text class="s" x="268" y="184">mission state machine · produces setpoints, never acts</text>
+
+  <!-- Perception -->
+  <rect class="purple" x="24" y="100" width="190" height="96" rx="12"/>
+  <text class="tag t-purple" x="40" y="122">USB PERCEPTION</text>
+  <text class="s" x="40" y="146">YDLIDAR X4 (indoor)</text>
+  <text class="s" x="40" y="164">GNSS receiver</text>
+  <text class="s" x="40" y="182">depth camera</text>
+  <path class="w-purple" d="M250 148 H214"/>
+
+  <!-- Spare -->
+  <rect class="card" x="746" y="100" width="190" height="96" rx="12"/>
+  <text class="tag" x="762" y="122" style="fill:var(--mut)">LOSS = DEGRADED</text>
+  <text class="s" x="762" y="146">Perception can fail.</text>
+  <text class="s" x="762" y="164">It never carries a</text>
+  <text class="s" x="762" y="182">command to a motor.</text>
+
+  <!-- X1 to bus -->
+  <path class="w-blue" d="M330 196 V244"/>
+  <text class="s mono" x="340" y="216">USB-CAN</text>
+
+  <!-- Bus -->
+  <line class="bus-can" x1="40" y1="250" x2="920" y2="250"/>
+  <line class="bus-safe" x1="40" y1="270" x2="920" y2="270"/>
+  <text class="tag t-green" x="740" y="240">CAN 2.0A · 500 kbit/s</text>
+  <text class="tag t-red" x="520" y="292">/SAFE · HARDWARE LINE</text>
+  <text class="s" x="352" y="240">safety_bus_distribution · Micro-Fit 3.0 6-pin trunk, no MCU</text>
+
+  <!-- Node drops -->
+  <g>
+    <path class="w-green" d="M170 250 V310"/><path class="w-red" d="M190 270 V310"/>
+    <path class="w-green" d="M470 250 V310"/><path class="w-red" d="M490 270 V310"/>
+    <path class="w-green" d="M770 250 V310"/><path class="w-red" d="M790 270 V310"/>
+  </g>
+
+  <!-- ESP32 nodes -->
+  <rect class="green" x="50" y="310" width="260" height="76" rx="12"/>
+  <text class="tag t-green" x="66" y="332">REAL TIME</text>
+  <text class="h" x="66" y="354">ESP32 MOTION · front</text>
+  <text class="s" x="66" y="374">200 Hz loop · 150 ms CAN watchdog</text>
+
+  <rect class="green" x="350" y="310" width="260" height="76" rx="12"/>
+  <text class="tag t-green" x="366" y="332">REAL TIME</text>
+  <text class="h" x="366" y="354">ESP32 MOTION · rear</text>
+  <text class="s" x="366" y="374">same board, role set by strap</text>
+
+  <rect class="green" x="650" y="310" width="260" height="76" rx="12" style="stroke:var(--red)"/>
+  <text class="tag t-red" x="666" y="332">SAFETY AUTHORITY</text>
+  <text class="h" x="666" y="354">ESP32 SAFETY</text>
+  <text class="s" x="666" y="374">grants arming · watchdogs · BNO085</text>
+
+  <!-- Boards -->
+  <path class="w-mut" d="M180 386 V414"/><path class="w-mut" d="M480 386 V414"/><path class="w-mut" d="M780 386 V414"/>
+  <rect class="card" x="50" y="414" width="260" height="52" rx="10"/>
+  <text class="h mono" x="180" y="437" text-anchor="middle" style="font-size:14px">motor_interface</text>
+  <text class="s" x="180" y="456" text-anchor="middle">Hall tap · VR / DIR / EL / STOP</text>
+  <rect class="card" x="350" y="414" width="260" height="52" rx="10"/>
+  <text class="h mono" x="480" y="437" text-anchor="middle" style="font-size:14px">motor_interface</text>
+  <text class="s" x="480" y="456" text-anchor="middle">Hall tap · VR / DIR / EL / STOP</text>
+  <rect class="amber" x="650" y="414" width="260" height="52" rx="10"/>
+  <text class="h mono" x="780" y="437" text-anchor="middle" style="font-size:14px">safety_power</text>
+  <text class="s" x="780" y="456" text-anchor="middle">static contactor · INA228 · chopper</text>
+
+  <!-- Drivers -->
+  <path class="w-mut" d="M180 466 V494"/><path class="w-mut" d="M480 466 V494"/>
+  <rect class="card" x="50" y="494" width="260" height="52" rx="10"/>
+  <text class="h" x="180" y="517" text-anchor="middle">2 × ZS-X11H → 2 hub motors</text>
+  <text class="s" x="180" y="536" text-anchor="middle">6.5 in, 250 W each · left + right</text>
+  <rect class="card" x="350" y="494" width="260" height="52" rx="10"/>
+  <text class="h" x="480" y="517" text-anchor="middle">2 × ZS-X11H → 2 hub motors</text>
+  <text class="s" x="480" y="536" text-anchor="middle">6.5 in, 250 W each · left + right</text>
+
+  <!-- Power -->
+  <path class="w-amber" d="M780 466 V596"/>
+  <path class="w-amber" d="M180 546 V596"/><path class="w-amber" d="M480 546 V596"/>
+  <line class="bus-pwr" x1="60" y1="600" x2="900" y2="600"/>
+  <text class="tag t-amber" x="60" y="630">DC BUS · 30–42 V</text>
+  <text class="s" x="200" y="630">Xiaomi M365 Pro pack · 10S4P · 37 V nominal · 474 Wh · switched by safety_power</text>
+</svg>

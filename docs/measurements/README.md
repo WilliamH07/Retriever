@@ -1,29 +1,47 @@
 # Bench measurements
 
-Results go here, one file per measurement, named `M<n>-<short-name>.md`.
-
 Each of these blocks a design decision. Nothing that depends on a measurement
-gets wired before the measurement exists.
+gets wired, or routed, before the measurement exists.
 
-| # | Measurement | Blocks | Status |
-|---|-------------|--------|--------|
-| M1 | Battery BMS current cut off threshold | Current budget, main fuse rating, number of driven wheels | to do |
-| M2 | Pack voltage at rest and under load, internal resistance | Prospective short circuit current, fuse breaking capacity | to do |
-| M3 | BMS connector logic level and pinout | Safety controller to BMS wiring | to do |
-| M4 | Motor driver EL and STOP input polarity | The whole stop chain, levels 3 to 5 | to do |
-| M5 | Motor driver J1 jumper state | PWM versus analogue command | to do |
-| M6 | Motor pole pair count | Odometry constant | to do |
-| M7 | Hall output voltage and impedance | Signal conditioning circuit | to do |
-| M8 | No load and loaded current per motor | Current budget, cable sizing | to do |
-| M9 | SBC USB 3.0 controller model | Whether the depth camera works at all | to do |
-| M10 | Total bus input capacitance | Precharge resistor and duration | to do |
-| M11 | GNSS supply voltage and protocol | Power rail, ROS 2 driver | to do |
-| M12 | Motor driver input capacitor voltage rating | Whether a fully charged pack is safe | to do |
+Results go here, one file per measurement, named `<id>-<short-name>.md`.
+Consolidated status from
+[`11-corrections-v1.2.md`](../architecture/11-corrections-v1.2.md) part 5; the
+same list, with the reasons, is under `blocking_measurements` in
+[`hardware/icd.yaml`](../../hardware/icd.yaml).
 
-Template for a result file:
+## Status
+
+| ID | Measurement | Blocks | Status |
+|---|---|---|---|
+| PACK_ID | Photograph the pack label **and** the BMS label | `safety_power` | to do |
+| M1 | BMS current cut-off threshold | `safety_power`, main fuse | to do, **safety protocol below** |
+| M2 | Pack voltage at rest and under load, internal resistance | `safety_power`, fuse breaking capacity | to do |
+| M3 | BMS connector logic level and pinout | — | worked around: isolator in any case |
+| M4 | ZS-X11H `EL` and `STOP` polarity | firmware, population | strong consensus, to confirm; PCB no longer blocked |
+| M5 | ZS-X11H jumper J1 | — | not applicable: DAC option chosen |
+| M6 | Motor pole pairs | — | **answered: 15**, strong consensus |
+| M7 | Hall and `SC` output level and impedance | `motor_interface` | to do, **no published source** |
+| M8 | No-load and loaded current per motor | current budget, cable sizing | to do |
+| M9 | X1 USB 3.0 controller model | depth camera | to do |
+| M10 | Total bus input capacitance | precharge sizing | to do |
+| M11 | GNSS supply voltage and protocol | power rail, ROS 2 driver | to do |
+| M12 | ZS-X11H input capacitor voltage rating | `safety_power` | to do |
+| P1 | ESP32 module row pitch, with calipers | all PCBs | to do |
+| P2 | ESP32 module pin order, with a multimeter | GPIO allocation | to do |
+| P3 | ESP32 module variant, PSRAM or not | `GPIO16` / `GPIO17` | to do |
+| HALL_OC | Are the Hall outputs really open collector? | pull-up value | to do |
+| HALL_COL | Hall wire colours, wire by wire | silkscreen | to do |
+| TEMP_ID | Type of the 3-pin temperature sensor | — | worked around: dual footprint |
+
+## Safety protocol for M1
+
+40 A fuse in series, pack at 50 % state of charge or less, outdoors, dry sand
+or a class D extinguisher within reach.
+
+## Result file template
 
 ```markdown
-# M<n> : <name>
+# <id> — <name>
 
 **Date:**
 **Method:**

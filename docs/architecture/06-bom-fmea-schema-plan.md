@@ -1,5 +1,7 @@
 # S. Nomenclature (BOM)
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 ⚠️ **Les prix sont des ordres de grandeur 📐 (France, août 2026), à confirmer.** Aucune référence produit précise n'est donnée quand je ne peux pas la vérifier ; à la place, je donne les **caractéristiques minimales à respecter**, ce qui est plus durable qu'une référence qui sera obsolète.
 
 ## S.1 Déjà possédé

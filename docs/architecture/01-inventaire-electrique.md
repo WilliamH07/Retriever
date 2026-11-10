@@ -1,5 +1,7 @@
 # C. Inventaire et classification des composants
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 ## C.1 Tableau maître
 
 Légende criticité : **C1** = sa perte provoque un danger · **C2** = sa perte arrête la mission · **C3** = sa perte dégrade la mission · **C4** = confort.

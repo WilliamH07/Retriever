@@ -1,5 +1,7 @@
 # O. Réseau et accès distant
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 ## O.1 Principe : le graphe ROS 2 ne traverse pas le lien radio
 
 C'est la décision structurante de cette section, et elle mérite d'être justifiée.
@@ -239,7 +241,7 @@ retriever/
 |---|---|---|
 | Protocole CAN | `retriever_can/protocol.yaml` | Généré vers C++ et C |
 | Dimensions du robot | `retriever_description/config/physical_params.yaml` | URDF, controllers.yaml, EKF, Nav2 |
-| Limites de sécurité | `firmware/common/safety_limits.h` | Firmware uniquement — **jamais** dupliquées côté ROS |
+| Limites de sécurité | `firmware/esp32_safety/main/safety_limits.h` (prévu) | Firmware uniquement — **jamais** dupliquées côté ROS |
 | Paramètres de navigation | `retriever_bringup/config/nav2_*.yaml` | Nav2 |
 
 ⚠️ **La duplication de la définition des dimensions est le bug le plus fréquent des projets robotiques** : le rayon de roue est dans l'URDF *et* dans `controllers.yaml`, on en modifie un, l'odométrie devient fausse de 3 % et on cherche pendant deux jours. Ici, `physical_params.yaml` est lu par les deux.
@@ -281,7 +283,7 @@ Arguments : `use_mock_hardware`, `use_sim`, `use_sensors`, `use_kinect`, `enviro
 
 | Catégorie | Où | Modifiable à chaud ? |
 |---|---|---|
-| **Limites de sécurité** | `firmware/common/safety_limits.h` | ❌ Jamais — recompilation |
+| **Limites de sécurité** | `firmware/esp32_safety/main/safety_limits.h` (prévu) | ❌ Jamais — recompilation |
 | **Configuration matérielle** (broches, calibres) | `firmware/*/config.h` + `retriever_description/config/` | ❌ Non |
 | **Paramètres d'algorithme** (gains, seuils Nav2) | YAML dans `retriever_bringup/config/` | ✅ Oui, via `ros2 param` |
 | **Paramètres de mission** | YAML + arguments de lancement | ✅ Oui |

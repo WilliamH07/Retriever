@@ -1,10 +1,9 @@
-# HANDOFF — banc B1, la chaîne IMU
+# Banc B1 — la chaîne IMU
 
-*Pendant lidar : [`HANDOFF-banc-lidar.md`](HANDOFF-banc-lidar.md). Commandes de
-lancement des deux bancs : [`DEMARRAGE.md`](DEMARRAGE.md), fiche en tête.*
+*Pendant lidar : [`lidar.md`](lidar.md). Commandes de
+lancement des deux bancs : [`DEMARRAGE.md`](../DEMARRAGE.md), fiche en tête.*
 
-**État au 20 septembre 2026.** Branche `feat/link-layer-and-imu-bench`, 25 commits
-depuis `main`. Ce document existe pour qu'on puisse reprendre ce travail dans
+**État au 20 septembre 2026.** Travail fusionné dans `main` (PR #2). Ce document existe pour qu'on puisse reprendre ce travail dans
 trois semaines sans relire l'historique : ce qui marche et avec quels chiffres,
 ce qui a été cassé et pourquoi, ce qui reste et comment le faire.
 

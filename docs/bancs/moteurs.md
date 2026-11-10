@@ -1,7 +1,7 @@
-# HANDOFF — banc moteurs, trois ZS-X11H depuis Foxglove
+# Banc B3 — moteurs, trois ZS-X11H depuis Foxglove
 
-**État au 21 septembre 2026.** Branche `feat/link-layer-and-imu-bench`. Troisième
-banc après [l'IMU](HANDOFF-banc-imu.md) et [le lidar](HANDOFF-banc-lidar.md).
+**État au 21 septembre 2026.** Fusionné dans `main` (PR #3). Troisième
+banc après [l'IMU](imu.md) et [le lidar](lidar.md).
 ⚠️ **Écrit avant le premier essai matériel** : tout est codé, vérifié par les
 tests hôte et la génération du protocole, mais **rien n'a encore fait tourner
 une roue**. La section 3 dit exactement ce qu'il reste à constater.

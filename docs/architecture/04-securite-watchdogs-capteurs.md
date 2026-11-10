@@ -1,5 +1,7 @@
 # L. Architecture de sécurité
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 ## L.1 Les quatre sécurités, séparées
 
 Le cahier des charges demande explicitement cette séparation. Elle est utile parce que **chaque catégorie a un mode de défaillance et un moyen de vérification différents**.

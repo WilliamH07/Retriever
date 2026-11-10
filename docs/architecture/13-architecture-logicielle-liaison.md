@@ -609,7 +609,7 @@ Capteur immobile, loin de tout métal, puis à 10 cm d'un moteur-roue non alimen
 | §I.1 | `retriever_can_bridge` | `retriever_link_bridge`. |
 | §G.3 | `H_INTN` sur GPIO34 | Sur le banc, GPIO25 : tirage interne disponible. GPIO34 redevient correct sur la carte, où le tirage externe sera au schéma. |
 
-**Corrections issues du banc, 20 septembre 2026.** Chacune est une mesure qui contredit le texte, pas une préférence. Le détail et le mécanisme sont dans `docs/HANDOFF-banc-imu.md` et `docs/HANDOFF-banc-lidar.md`.
+**Corrections issues du banc, 20 septembre 2026.** Chacune est une mesure qui contredit le texte, pas une préférence. Le détail et le mécanisme sont dans `docs/bancs/imu.md` et `docs/bancs/lidar.md`.
 
 | Section | Texte actuel | Correction |
 |---|---|---|
@@ -654,13 +654,13 @@ Capteur immobile, loin de tout métal, puis à 10 cm d'un moteur-roue non alimen
    B1  IMU → ROS → Foxglove                         ✅ 20 sept. 2026
         │  ce que ça prouve : le protocole, le cadrage, la génération,
         │  les conventions de repères, la chaîne de covariances
-        │  → docs/HANDOFF-banc-imu.md
+        │  → docs/bancs/imu.md
         ▼
    B1' Lidar X4 → ROS → Foxglove                    ✅ 20 sept. 2026
         │  hors socle ESP32 : USB direct, pilote tiers épinglé (.repos).
         │  ce que ça prouve : la méthode — reproduire un témoin qui marche,
         │  puis s'en écarter un paramètre à la fois
-        │  → docs/HANDOFF-banc-lidar.md
+        │  → docs/bancs/lidar.md
         ▼
    B2  Deuxième capteur sur le socle ESP32
         │  GPS, ou températures. Coût attendu : une trame dans le YAML,

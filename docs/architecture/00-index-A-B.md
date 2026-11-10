@@ -1,5 +1,7 @@
 # Dossier d'architecture — Robot mobile 4WD « Retriever »
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 **Plateforme** : châssis 4 roues motrices, extérieur, 20–60 kg
 **Calculateur** : Youyeetoo X1 (Intel Celeron N5105) — Ubuntu 24.04 — ROS 2 Jazzy
 **Objectif 3–6 mois** : navigation autonome Nav2
