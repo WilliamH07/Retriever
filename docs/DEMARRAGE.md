@@ -720,8 +720,8 @@ même version.
 ## 7. Pour aller plus loin
 
 - **L'état des bancs, les défauts déjà trouvés et ce qu'il reste à faire** :
-  [`docs/HANDOFF-banc-imu.md`](HANDOFF-banc-imu.md) et
-  [`docs/HANDOFF-banc-lidar.md`](HANDOFF-banc-lidar.md). Ce sont les documents à
+  [`docs/bancs/imu.md`](bancs/imu.md) et
+  [`docs/bancs/lidar.md`](bancs/lidar.md). Ce sont les documents à
   lire en premier quand on reprend ce travail après une interruption.
 
 - L'architecture logicielle complète, la couche liaison et la recette de banc B1 :

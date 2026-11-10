@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500" width="960" height="500" role="img" aria-labelledby="t d">
+  <title id="t">Retriever stop chain, six levels</title>
+  <desc id="d">Six stop levels with their owner and reaction time. N1 to N4 run in software on the X1 or the ESP32 nodes. N5, the latching emergency stop loop, and N6, the manual battery isolator and main fuse, contain no code.</desc>
+  <style>
+    svg { --bg:#ffffff; --card:#f6f8fa; --line:#d0d7de; --fg:#1f2328; --mut:#59636e;
+          --blue:#0969da; --blueb:#ddf4ff; --green:#1a7f37; --greenb:#dafbe1;
+          --red:#cf222e; --redb:#ffebe9; --amber:#9a6700; --amberb:#fff8c5; }
+    @media (prefers-color-scheme: dark) {
+      svg { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --mut:#9198a1;
+            --blue:#4493f8; --blueb:#0d2847; --green:#3fb950; --greenb:#0f2d1a;
+            --red:#f85149; --redb:#3a1418; --amber:#d29922; --amberb:#33270a; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--fg); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .h { font-size: 15px; font-weight: 600; }
+    .s { font-size: 12.5px; fill: var(--mut); }
+    .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; }
+    .lvl { font-size: 15px; font-weight: 700; }
+    .bg { fill: var(--bg); stroke: var(--line); }
+    .row { fill: var(--card); stroke: var(--line); }
+    .row-hw { fill: var(--redb); stroke: var(--red); stroke-width: 1.4; }
+    .b-blue { fill: var(--blue); } .b-green { fill: var(--green); } .b-red { fill: var(--red); }
+    .t-blue { fill: var(--blue); } .t-green { fill: var(--green); } .t-red { fill: var(--red); } .t-amber { fill: var(--amber); }
+    .grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 4; }
+    .bracket { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+  </style>
+
+  <rect class="bg" x="0.5" y="0.5" width="959" height="499" rx="14"/>
+
+  <text class="tag" x="96" y="34" style="fill:var(--mut)">LEVEL</text>
+  <text class="tag" x="160" y="34" style="fill:var(--mut)">WHAT STOPS THE ROBOT</text>
+  <text class="tag" x="560" y="34" style="fill:var(--mut)">OWNER</text>
+  <text class="tag" x="690" y="34" style="fill:var(--mut)">REACTION TIME</text>
+
+  <!-- latency grid: 0..150 ms over 220 px, origin x=690 -->
+  <line class="grid" x1="690" y1="44" x2="690" y2="410"/>
+  <line class="grid" x1="763" y1="44" x2="763" y2="410"/>
+  <line class="grid" x1="837" y1="44" x2="837" y2="410"/>
+  <line class="grid" x1="910" y1="44" x2="910" y2="410"/>
+  <text class="s mono" x="690" y="426" text-anchor="middle">0</text>
+  <text class="s mono" x="763" y="426" text-anchor="middle">50</text>
+  <text class="s mono" x="837" y="426" text-anchor="middle">100</text>
+  <text class="s mono" x="910" y="426" text-anchor="middle">150 ms</text>
+
+  <!-- N1 -->
+  <rect class="row" x="84" y="48" width="852" height="52" rx="9"/>
+  <text class="lvl t-blue" x="98" y="80">N1</text>
+  <text class="h" x="160" y="72">ROS 2 collision monitor, cmd_vel timeout</text>
+  <text class="s" x="160" y="90">Nav2 sees an obstacle or loses its command stream</text>
+  <text class="s mono" x="560" y="80">X1</text>
+  <rect class="b-blue" x="690" y="66" width="147" height="16" rx="4"/>
+  <text class="s mono" x="845" y="79">~100</text>
+
+  <!-- N2 -->
+  <rect class="row" x="84" y="108" width="852" height="52" rx="9"/>
+  <text class="lvl t-blue" x="98" y="140">N2</text>
+  <text class="h" x="160" y="132">ros2_control interface returns ERROR</text>
+  <text class="s" x="160" y="150">hardware layer refuses to forward setpoints</text>
+  <text class="s mono" x="560" y="140">X1</text>
+  <rect class="b-blue" x="690" y="126" width="73" height="16" rx="4"/>
+  <text class="s mono" x="771" y="139">~50</text>
+
+  <!-- N3 -->
+  <rect class="row" x="84" y="168" width="852" height="52" rx="9"/>
+  <text class="lvl t-green" x="98" y="200">N3</text>
+  <text class="h" x="160" y="192">No CAN frame for 150 ms → setpoint 0</text>
+  <text class="s" x="160" y="210">each motor node times out on its own</text>
+  <text class="s mono" x="560" y="200">ESP32 MOTION</text>
+  <rect class="b-green" x="690" y="186" width="220" height="16" rx="4"/>
+  <text class="s mono" x="878" y="199" text-anchor="end" style="fill:var(--bg)">~150</text>
+
+  <!-- N4 -->
+  <rect class="row" x="84" y="228" width="852" height="52" rx="9"/>
+  <text class="lvl t-green" x="98" y="260">N4</text>
+  <text class="h" x="160" y="252">Overcurrent or lost heartbeat → disarm</text>
+  <text class="s" x="160" y="270">the safety node drops /SAFE and opens the contactor</text>
+  <text class="s mono" x="560" y="260">ESP32 SAFETY</text>
+  <rect class="b-green" x="690" y="246" width="29" height="16" rx="4"/>
+  <text class="s mono" x="727" y="259">~20</text>
+
+  <!-- N5 -->
+  <rect class="row-hw" x="84" y="296" width="852" height="52" rx="9"/>
+  <text class="lvl t-red" x="98" y="328">N5</text>
+  <text class="h" x="160" y="320">Latching emergency stop, hardware loop</text>
+  <text class="s" x="160" y="338">removes the static contactor drive · 4.3 µs fault cut-off</text>
+  <text class="s mono" x="560" y="328">wiring</text>
+  <rect class="b-red" x="690" y="314" width="15" height="16" rx="4"/>
+  <text class="s mono" x="713" y="327">~10</text>
+
+  <!-- N6 -->
+  <rect class="row-hw" x="84" y="356" width="852" height="52" rx="9"/>
+  <text class="lvl t-red" x="98" y="388">N6</text>
+  <text class="h" x="160" y="380">Manual battery isolator and MRBF main fuse</text>
+  <text class="s" x="160" y="398">the only galvanic break · the real last resort</text>
+  <text class="s mono" x="560" y="388">mechanical</text>
+  <text class="s" x="690" y="387">by hand</text>
+
+  <!-- brackets -->
+  <path class="bracket" style="stroke:var(--blue)" d="M66 52 H58 V276 H66"/>
+  <text class="tag t-blue" transform="translate(44 164) rotate(-90)" text-anchor="middle">SOFTWARE</text>
+  <path class="bracket" style="stroke:var(--red)" d="M66 300 H58 V404 H66"/>
+  <text class="tag t-red" transform="translate(44 352) rotate(-90)" text-anchor="middle">NO CODE</text>
+
+  <text class="s" x="84" y="456">A ROS 2 crash, an out-of-memory kill or a blocked kernel cannot produce movement: the X1 only requests arming,</text>
+  <text class="s" x="84" y="474">ESP32 SAFETY grants it. When /SAFE drops the drivers coast; braking comes from EL, and the brake chopper absorbs back-EMF.</text>
+</svg>

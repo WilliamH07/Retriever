@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 190" width="960" height="190" role="img" aria-labelledby="t d">
+  <title id="t">Retriever build stages</title>
+  <desc id="d">Stage 1 architecture and CAD: done. Stage 2 chassis: done. Stage 2b sensors to ROS 2: done. Stage 2c motor bench: current. Stage 3 PCB redesign and power chain energised: next. Stage 4 motors driven with wheels raised: planned. Stage 5 autonomous outdoor navigation: planned.</desc>
+  <style>
+    svg { --bg:#ffffff; --line:#d0d7de; --fg:#1f2328; --mut:#59636e; --green:#1a7f37; --blue:#0969da; }
+    @media (prefers-color-scheme: dark) {
+      svg { --bg:#0d1117; --line:#30363d; --fg:#e6edf3; --mut:#9198a1; --green:#3fb950; --blue:#4493f8; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--fg); }
+    .n { font-size: 13px; font-weight: 700; }
+    .h { font-size: 13.5px; font-weight: 600; }
+    .s { font-size: 11.5px; fill: var(--mut); }
+    .bg { fill: var(--bg); stroke: var(--line); }
+    .track { stroke: var(--line); stroke-width: 4; stroke-linecap: round; }
+    .done-track { stroke: var(--green); stroke-width: 4; stroke-linecap: round; }
+    .done { fill: var(--green); }
+    .cur { fill: var(--bg); stroke: var(--blue); stroke-width: 4; }
+    .todo { fill: var(--bg); stroke: var(--line); stroke-width: 3; }
+    .on { fill: var(--bg); }
+    .t-blue { fill: var(--blue); } .t-green { fill: var(--green); }
+  </style>
+
+  <rect class="bg" x="0.5" y="0.5" width="959" height="189" rx="14"/>
+
+  <line class="track" x1="70" y1="62" x2="890" y2="62"/>
+  <line class="done-track" x1="70" y1="62" x2="480" y2="62"/>
+
+  <!-- 1 -->
+  <circle class="done" cx="70" cy="62" r="17"/>
+  <text class="n on" x="70" y="67" text-anchor="middle">1</text>
+  <text class="h" x="70" y="104" text-anchor="middle">Architecture</text>
+  <text class="s" x="70" y="122" text-anchor="middle">dossier + CAD</text>
+  <text class="s t-green" x="70" y="142" text-anchor="middle">done</text>
+
+  <!-- 2 -->
+  <circle class="done" cx="207" cy="62" r="17"/>
+  <text class="n on" x="207" y="67" text-anchor="middle">2</text>
+  <text class="h" x="207" y="104" text-anchor="middle">Chassis</text>
+  <text class="s" x="207" y="122" text-anchor="middle">frame, wheels, bay</text>
+  <text class="s t-green" x="207" y="142" text-anchor="middle">done</text>
+
+  <!-- 2b -->
+  <circle class="done" cx="343" cy="62" r="17"/>
+  <text class="n on" x="343" y="67" text-anchor="middle">2b</text>
+  <text class="h" x="343" y="104" text-anchor="middle">Sensors → ROS 2</text>
+  <text class="s" x="343" y="122" text-anchor="middle">IMU 99.8 Hz, lidar</text>
+  <text class="s t-green" x="343" y="142" text-anchor="middle">done</text>
+
+  <!-- 2c -->
+  <circle class="cur" cx="480" cy="62" r="17"/>
+  <text class="n t-blue" x="480" y="67" text-anchor="middle">2c</text>
+  <text class="h" x="480" y="104" text-anchor="middle">Motor bench</text>
+  <text class="s" x="480" y="122" text-anchor="middle">coded, first spin due</text>
+  <text class="s t-blue" x="480" y="142" text-anchor="middle">current</text>
+
+  <!-- 3 -->
+  <circle class="todo" cx="617" cy="62" r="17"/>
+  <text class="n" x="617" y="67" text-anchor="middle" style="fill:var(--mut)">3</text>
+  <text class="h" x="617" y="104" text-anchor="middle">PCBs + power</text>
+  <text class="s" x="617" y="122" text-anchor="middle">redesign, energise</text>
+  <text class="s" x="617" y="142" text-anchor="middle">next</text>
+
+  <!-- 4 -->
+  <circle class="todo" cx="753" cy="62" r="17"/>
+  <text class="n" x="753" y="67" text-anchor="middle" style="fill:var(--mut)">4</text>
+  <text class="h" x="753" y="104" text-anchor="middle">Wheels raised</text>
+  <text class="s" x="753" y="122" text-anchor="middle">all stop tests pass</text>
+  <text class="s" x="753" y="142" text-anchor="middle">planned</text>
+
+  <!-- 5 -->
+  <circle class="todo" cx="890" cy="62" r="17"/>
+  <text class="n" x="890" y="67" text-anchor="middle" style="fill:var(--mut)">5</text>
+  <text class="h" x="890" y="104" text-anchor="middle">Autonomy</text>
+  <text class="s" x="890" y="122" text-anchor="middle">outdoor waypoint</text>
+  <text class="s" x="890" y="142" text-anchor="middle">planned</text>
+
+  <text class="s" x="480" y="174" text-anchor="middle">Every stage has a measurable exit criterion. Nothing gets wired before the measurements it depends on.</text>
+</svg>

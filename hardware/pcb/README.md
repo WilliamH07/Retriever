@@ -1,22 +1,61 @@
 # Printed circuit boards
 
-Three boards, currently being designed in EasyEDA.
+Three boards. **All three are being redesigned from a clean sheet.** The first
+pass (August–September 2026, EasyEDA) is archived in
+[`docs/archive/pcb-v1/`](../../docs/archive/pcb-v1/): its schematic was never
+functional, and parts of its specification contradicted the v1.2 corrections.
 
-| Board | Function | State |
-|---|---|---|
-| [`motor_interface/`](motor_interface/) | Hall passthrough with wire colour remapping, level shifting and signal conditioning to the pulse counters, CAN breakout | routed, pre production review |
-| [`safety_power/`](safety_power/) | Power distribution, 37 V / 12 V / 5 V buses, fusing, overvoltage and regeneration protection, precharge, current sensing | specified |
-| `can_distribution/` | CAN bus distribution with termination, node breakout and supply fan out | in design |
+| Board | Role | Copies | Blocked by | Folder |
+|---|---|---|---|---|
+| `safety_bus_distribution` | Passive CAN + `/SAFE` trunk, protected 5 V per node, no MCU | 1 of 5 | nothing, built first | [`safety_bus_distribution/`](safety_bus_distribution/) |
+| `motor_interface` | Hall tap to the ESP32, command path VR / DIR / EL / STOP to two ZS-X11H | 2 of 5 | M7 (Hall levels) | [`motor_interface/`](motor_interface/) |
+| `safety_power` | Battery input, static contactor, precharge, brake chopper, INA228, DC/DC rails, SAFETY ESP32 | 1 of 5 | M1, M2, M10, M12, pack and BMS label | [`safety_power/`](safety_power/) |
 
-Each board folder should end up containing:
+Build order, from [`11-corrections-v1.2.md`](../../docs/architecture/11-corrections-v1.2.md)
+part 6:
 
 ```
-schematic.pdf        human readable schematic
+1  safety_bus_distribution   no blocking measurement, unlocks the CAN bench
+2  M4, M5, M7 on one motor and one ZS-X11H, current-limited lab supply
+3  Hall tap prototype on perfboard, one channel
+4  motor_interface
+5  PACK_ID, M1, M2, M10, M12 on the pack
+6  safety_power
+```
+
+## Inputs for the redesign
+
+| Source | What it fixes |
+|---|---|
+| [`../icd.yaml`](../icd.yaml) | Connectors, pinouts, wire colours, GPIO allocation |
+| [`09-validation-composants.md`](../../docs/architecture/09-validation-composants.md) | Every part checked against its datasheet |
+| [`10-spec-motor-interface.md`](../../docs/architecture/10-spec-motor-interface.md) | The two-motor board |
+| [`11-corrections-v1.2.md`](../../docs/architecture/11-corrections-v1.2.md) | Safety-critical corrections C-S1 to C-S3, parts C5 to C17 |
+| [`12-contacteur-statique.md`](../../docs/architecture/12-contacteur-statique.md) | Static contactor and precharge |
+
+Corrections that a new schematic must carry, whatever the tool:
+
+- `/SAFE` does not brake: ZS-X11H `STOP` is active low and coasts. Braking
+  comes from `EL`, pulled up to `5V_BRAKE` on the loom (C-S1).
+- The brake chopper is mandatory, 22 Ω / 100 W, on at 42.5 V, off at 41.8 V
+  (C-S2).
+- Every fuse on the 42 V side is rated 58 V DC: `BF1 58V` in MIDI 498 holders,
+  MRBF at the battery (C-S3).
+- CAN transceiver `TCAN1042HVDR`, not `SN65HVD230` (C5).
+- Three Hall lines per motor through `SN74LVC3G17`, 2.2 kΩ pull-up and
+  2.2 kΩ + 10 nF filter (C7).
+- `INA228` current and energy monitor (C8). eFuses chosen per voltage class
+  (C10). `GPIO12` never used (C14).
+
+## What each board folder will hold
+
+```
+README.md            role, connectors, test points, bring-up
+<tool>/              native design sources
+schematic.pdf        readable schematic
 gerbers/             fabrication output
-bom.csv              bill of materials
-pick_and_place.csv   if assembled
-README.md            what it does, connectors, test points
+bom.csv              bill of materials, assembler part numbers
 ```
 
-Source files are exported from EasyEDA. Fabrication output is committed so that
-anyone can order the boards without opening a design tool.
+Fabrication output is committed so anyone can order the boards without opening
+a design tool.

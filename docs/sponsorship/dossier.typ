@@ -180,12 +180,12 @@ difference measurable.
   ..kv("Configuration", "4WD skid steer, outdoor"),
   ..kv("Structure", "Aluminium extrusion frame, laser cut panels, 3D printed mounts"),
   ..kv("Target mass", "35 kg in running order"),
-  ..kv("Target speed", "1.5 m/s"),
+  ..kv("Target speed", "1.5 m/s, slopes up to 10 %"),
   ..kv("Drivetrain", [4 #sym.times 6.5 inch hub motors, 250 W each]),
-  ..kv("Motor drivers", [4 #sym.times BLDC controllers, 36 to 48 V]),
-  ..kv("Battery", "36 V, 280 Wh lithium ion, 10S3P"),
-  ..kv("Endurance", "70 min at 200 W average"),
-  ..kv("Compute", "x86 SBC, Ubuntu 24.04, ROS 2 Jazzy"),
+  ..kv("Motor drivers", [4 #sym.times ZS-X11H BLDC controllers]),
+  ..kv("Battery", "37 V nominal (30 to 42 V), 474 Wh lithium ion, 10S4P"),
+  ..kv("Endurance", "about 2 h at 200 W average"),
+  ..kv("Compute", "Youyeetoo X1 x86 SBC, Ubuntu 24.04, ROS 2 Jazzy"),
   ..kv("Real time", [3 #sym.times ESP32 on CAN 2.0A, 500 kbit/s]),
   ..kv("Localisation", "GNSS, IMU and wheel odometry, dual EKF"),
   ..kv("Navigation", "Nav2, collision monitor, twist mux"),
@@ -223,9 +223,10 @@ can hold that contactor closed once the mushroom button is pressed.
 
 = Where the project stands
 
-*Design is complete.* The full architecture dossier runs to eight documents
+*Design is complete.* The full architecture dossier runs to fourteen documents
 covering electrical design, communications, ROS 2 architecture, safety,
-network, code organisation, test strategy and a costed bill of materials. The
+network, code organisation, test strategy, a costed bill of materials, a
+datasheet validation of every component and a design review of the boards. The
 mechanical design is finished in CAD.
 
 *Construction is well under way.* The aluminium extrusion frame is assembled,
@@ -245,8 +246,10 @@ and switching hardware, and the wiring.
     text(weight: "bold", size: 8.5pt)[Exit criterion],
     text(weight: "bold", size: 8.5pt)[State]),
   [1], [Architecture and CAD design complete], [#text(fill: rgb("#1a6b1a"))[done]],
-  [2], [Chassis fabricated and assembled], [#text(fill: rgb("#b06000"))[current]],
-  [3], [Power chain energised, no motor connected], [next],
+  [2], [Chassis fabricated and assembled], [#text(fill: rgb("#1a6b1a"))[done]],
+  [2b], [First sensors published to ROS 2], [#text(fill: rgb("#1a6b1a"))[done]],
+  [2c], [Motor bench driven from Foxglove], [#text(fill: rgb("#b06000"))[current]],
+  [3], [PCBs made, power chain energised, no motor connected], [next],
   [4], [Motors driven, wheels raised, all stop tests pass], [planned],
   [5], [Autonomous outdoor navigation to a waypoint], [planned],
 )]
@@ -305,9 +308,10 @@ Four things stand between the platform as it is today and a robot that works
 outdoors on its own. If one of them is something you make, or something you
 could help with, I would be glad to talk.
 
-*Printed circuit boards.* Three boards are being designed in EasyEDA: a motor
-driver interface, a safety and power management board, and a CAN distribution
-board. They need making.
+*Printed circuit boards.* Three boards are being redesigned from a clean
+sheet: a motor driver interface, a safety and power management board with a
+static contactor, and a passive CAN and safety bus distribution board. They
+need making.
 
 *Embedded AI compute.* The current x86 board runs the navigation stack, but
 not the perception that outdoor autonomy asks for.

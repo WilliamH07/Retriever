@@ -3,7 +3,7 @@
  *
  *  ⚠️ CECI EST LA CONFIGURATION DU BANC, pas celle de la carte `safety_power`.
  *  La carte n'est pas routée ; quand elle le sera, l'affectation définitive
- *  ira dans `hardware/pcb/safety_power/icd.yaml`, qui est la source de vérité
+ *  ira dans `hardware/icd.yaml`, qui est la source de vérité
  *  pour le matériel, et ce fichier sera mis en correspondance avec elle.
  *
  *  Règles de choix des broches sur ESP32-WROOM-32, et pourquoi :

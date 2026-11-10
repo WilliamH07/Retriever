@@ -1,5 +1,7 @@
 # F. Architecture des communications
 
+> **Dossier v1.1.** Les corrections v1.2 de [`11-corrections-v1.2.md`](11-corrections-v1.2.md) priment sur ce document partout où ils divergent : pack 10S4P 474 Wh, `/SAFE` ne freine pas, fusibles 58 V, contacteur statique, transceiver `TCAN1042HV`. Index et statut de chaque document : [`README.md`](README.md).
+
 ## F.1 Comparaison des options pour le lien X1 ↔ microcontrôleurs
 
 C'est la décision d'architecture la plus structurante après la sécurité. Le cahier des charges demande explicitement de ne pas partir du principe que « tout doit passer par USB ». Voici la comparaison réelle.
@@ -99,10 +101,10 @@ Identifiants 11 bits (CAN 2.0A). Rappel : **plus l'identifiant est petit, plus l
 
 **Charge du bus** : 100 (sécurité) + 200 (commandes+retours) + 300 (IMU) + 20 (puissance) + 30 (heartbeats) + divers ≈ **675 trames/s**. À ~110 bits par trame et 500 kbit/s : **≈ 15 % de charge**. Marge très confortable pour l'évolution.
 
-**Une seule source de vérité pour le protocole** : un fichier `retriever_can/protocol.yaml` décrit tous les identifiants, champs, échelles et unités. Un script de génération produit :
-- `retriever_can/include/retriever_can/protocol.hpp` (C++, pour ROS 2),
-- `firmware/common/protocol.h` (C, pour les ESP32),
-- la documentation.
+**Une seule source de vérité pour le protocole** : un fichier `firmware/protocol/protocol.yaml` décrit tous les identifiants, champs, échelles et unités. Un script de génération produit :
+- `ros2_ws/src/retriever_protocol/include/retriever_protocol/retriever_protocol.h` (copie pour ROS 2),
+- `firmware/protocol/generated/retriever_protocol.h` (C, pour les ESP32),
+- la documentation (`docs/architecture/generated/protocol-tables.md`).
 
 C'est ce qui empêche la dérive silencieuse entre firmware et logiciel — le mode de défaillance le plus pénible de ce genre de projet.
 

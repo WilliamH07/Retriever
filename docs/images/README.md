@@ -40,6 +40,26 @@ script. All 1600 x 900, web sized, so the repository stays quick to clone.
 | `13-deck-bracket.png` | Printed deck bracket in the extrusion slot |
 | `14-front-panel.png` | Front panel |
 
+## Diagrams
+
+Hand-written SVG, readable as text and diffable. Each follows the viewer's
+light or dark theme through `prefers-color-scheme`.
+
+| File | Content |
+|---|---|
+| `diagrams/architecture.svg` | System: X1, CAN and `/SAFE` bus, three ESP32 nodes, boards, DC bus |
+| `diagrams/safety-chain.svg` | The six stop levels, owner and reaction time |
+| `diagrams/power-chain.svg` | Battery to DC bus: isolator, fuse, shunt, static contactor, loads |
+| `diagrams/roadmap.svg` | Build stages and where the project stands |
+
+Update `roadmap.svg` when a stage closes, in the same commit as the README.
+
+## Build photos
+
+`build/` holds photos of the real robot, `p1`–`p4` for the README and
+`b01`–`b06` for the build log. `cover/` holds the renders used by the
+sponsorship dossier.
+
 ## Regenerating
 
 The renders are produced by a Fusion 360 script that sets the camera, the

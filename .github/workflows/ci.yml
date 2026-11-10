@@ -38,6 +38,9 @@ jobs:
       - name: Accord entre les trois implémentations du protocole
         run: python3 tools/check_protocol_sync.py
 
+      - name: Liens relatifs de la documentation
+        run: python3 tools/check_links.py
+
   firmware:
     name: Firmware ESP32
     runs-on: ubuntu-latest

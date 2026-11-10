@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-labelledby="t d">
+  <title id="t">Retriever power chain</title>
+  <desc id="d">Battery, manual isolator, MRBF fuse, INA228 shunt and a static contactor with a precharge branch feed a 30 to 42 volt DC bus. The bus supplies four ZS-X11H motor drivers through 58 volt fuses, a brake chopper, and DC/DC converters for the computer and logic.</desc>
+  <style>
+    svg { --bg:#ffffff; --card:#f6f8fa; --line:#d0d7de; --fg:#1f2328; --mut:#59636e;
+          --blue:#0969da; --blueb:#ddf4ff; --green:#1a7f37; --greenb:#dafbe1;
+          --red:#cf222e; --redb:#ffebe9; --amber:#9a6700; --amberb:#fff8c5; }
+    @media (prefers-color-scheme: dark) {
+      svg { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --mut:#9198a1;
+            --blue:#4493f8; --blueb:#0d2847; --green:#3fb950; --greenb:#0f2d1a;
+            --red:#f85149; --redb:#3a1418; --amber:#d29922; --amberb:#33270a; }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--fg); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .h { font-size: 14.5px; font-weight: 600; }
+    .s { font-size: 12px; fill: var(--mut); }
+    .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; }
+    .bg { fill: var(--bg); stroke: var(--line); }
+    .card { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
+    .amber { fill: var(--amberb); stroke: var(--amber); stroke-width: 1.6; }
+    .red { fill: var(--redb); stroke: var(--red); stroke-width: 1.6; }
+    .blue { fill: var(--blueb); stroke: var(--blue); stroke-width: 1.6; }
+    .w { stroke: var(--amber); stroke-width: 3; fill: none; }
+    .w-thin { stroke: var(--amber); stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+    .bus { stroke: var(--amber); stroke-width: 9; stroke-linecap: round; }
+    .t-amber { fill: var(--amber); } .t-red { fill: var(--red); } .t-blue { fill: var(--blue); }
+  </style>
+
+  <rect class="bg" x="0.5" y="0.5" width="959" height="399" rx="14"/>
+
+  <!-- Source chain -->
+  <rect class="amber" x="28" y="40" width="158" height="72" rx="11"/>
+  <text class="tag t-amber" x="42" y="60">SOURCE</text>
+  <text class="h" x="42" y="81">M365 Pro pack</text>
+  <text class="s" x="42" y="99">10S4P · 37 V · 474 Wh</text>
+
+  <rect class="red" x="212" y="40" width="148" height="72" rx="11"/>
+  <text class="tag t-red" x="226" y="60">N6 · MANUAL</text>
+  <text class="h" x="226" y="81">Isolator</text>
+  <text class="s" x="226" y="99">galvanic break</text>
+
+  <rect class="red" x="386" y="40" width="148" height="72" rx="11"/>
+  <text class="tag t-red" x="400" y="60">N6 · FUSE</text>
+  <text class="h" x="400" y="81">MRBF 80 A</text>
+  <text class="s" x="400" y="99">58 V DC, battery post</text>
+
+  <rect class="card" x="560" y="40" width="148" height="72" rx="11"/>
+  <text class="tag" x="574" y="60" style="fill:var(--mut)">MEASURE</text>
+  <text class="h mono" x="574" y="81">INA228</text>
+  <text class="s" x="574" y="99">shunt · V, I, energy</text>
+
+  <rect class="blue" x="734" y="40" width="198" height="72" rx="11"/>
+  <text class="tag t-blue" x="748" y="60">STATIC CONTACTOR</text>
+  <text class="h mono" x="748" y="81">TPS4810-Q1</text>
+  <text class="s" x="748" y="99">2 × IPB017N10N5, opposed</text>
+
+  <path class="w" d="M186 76 H212"/><path class="w" d="M360 76 H386"/>
+  <path class="w" d="M534 76 H560"/><path class="w" d="M708 76 H734"/>
+
+  <!-- Precharge bypass -->
+  <path class="w-thin" d="M721 76 V156 H748"/>
+  <rect class="card" x="748" y="134" width="150" height="44" rx="9" style="stroke-dasharray:5 4"/>
+  <text class="h" x="760" y="153" style="font-size:13px">Precharge</text>
+  <text class="s" x="760" y="169">10 Ω / 25 W · τ 0.1 s</text>
+  <path class="w-thin" d="M898 156 H912"/>
+  <path class="w" d="M912 112 V214"/>
+
+  <!-- Bus -->
+  <line class="bus" x1="40" y1="218" x2="920" y2="218"/>
+  <text class="tag t-amber" x="40" y="204">DC BUS · 30–42 V · ≈ 10 mF</text>
+
+  <!-- Loads -->
+  <g>
+    <path class="w" d="M103 218 V258"/><path class="w" d="M255 218 V258"/>
+    <path class="w" d="M407 218 V258"/><path class="w" d="M559 218 V258"/>
+    <path class="w" d="M711 218 V258"/><path class="w" d="M863 218 V258"/>
+  </g>
+  <rect class="card" x="34" y="258" width="138" height="66" rx="10"/>
+  <text class="h" x="48" y="281">ZS-X11H · FL</text>
+  <text class="s mono" x="48" y="300">BF1 58 V · 25 A</text>
+  <rect class="card" x="186" y="258" width="138" height="66" rx="10"/>
+  <text class="h" x="200" y="281">ZS-X11H · FR</text>
+  <text class="s mono" x="200" y="300">BF1 58 V · 25 A</text>
+  <rect class="card" x="338" y="258" width="138" height="66" rx="10"/>
+  <text class="h" x="352" y="281">ZS-X11H · RL</text>
+  <text class="s mono" x="352" y="300">BF1 58 V · 25 A</text>
+  <rect class="card" x="490" y="258" width="138" height="66" rx="10"/>
+  <text class="h" x="504" y="281">ZS-X11H · RR</text>
+  <text class="s mono" x="504" y="300">BF1 58 V · 25 A</text>
+  <rect class="red" x="642" y="258" width="138" height="66" rx="10"/>
+  <text class="h" x="656" y="281">Brake chopper</text>
+  <text class="s" x="656" y="300">22 Ω / 100 W</text>
+  <text class="s" x="656" y="316">on above 42.5 V</text>
+  <rect class="blue" x="794" y="258" width="138" height="66" rx="10"/>
+  <text class="h" x="808" y="281">DC/DC rails</text>
+  <text class="s" x="808" y="300">12 V X1 · 5 V logic</text>
+  <text class="s" x="808" y="316">eFuse per branch</text>
+
+  <text class="s" x="40" y="356">Standard MIDI and blade fuses are rated 32 V DC: at 42 V the arc does not clear, so every branch uses 58 V parts.</text>
+  <text class="s" x="40" y="374">The back-to-back MOSFETs block regeneration both ways. When the contactor opens with wheels turning, only the chopper absorbs the energy.</text>
+</svg>

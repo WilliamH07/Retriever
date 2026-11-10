@@ -205,6 +205,6 @@ Never plug a new board into the robot.
 Specified. Nothing blocks it — no measurement, no pending decision. It is the
 board to draw first.
 
-Connector-by-connector pinout in [`hardware/icd.yaml`](../hardware/icd.yaml).
+Connector-by-connector pinout in [`hardware/icd.yaml`](../../icd.yaml).
 Component justifications, with datasheet URLs, in
-[`09-validation-composants.md`](../architecture/09-validation-composants.md).
+[`09-validation-composants.md`](../../../docs/architecture/09-validation-composants.md).

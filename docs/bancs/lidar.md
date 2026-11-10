@@ -1,7 +1,7 @@
-# HANDOFF — banc lidar, le YDLIDAR X4
+# Banc B2 — le lidar YDLIDAR X4
 
-**État au 20 septembre 2026.** Branche `feat/link-layer-and-imu-bench`. Pendant
-de [`HANDOFF-banc-imu.md`](HANDOFF-banc-imu.md), même structure : ce qui marche
+**État au 20 septembre 2026.** Fusionné dans `main` (PR #2). Pendant
+de [`imu.md`](imu.md), même structure : ce qui marche
 avec les chiffres, ce qui a été cassé et par quel mécanisme, ce qui reste.
 
 ---

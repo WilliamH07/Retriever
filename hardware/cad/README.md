@@ -5,10 +5,10 @@ complete and the parts are made; this folder holds the files they were made
 from.
 
 ```
-dxf/        laser cutting profiles, one file per flat part
-stl/        printable parts, ready to slice
-step/       STEP exports, for anyone using a different CAD tool
-source/     native CAD files
+dxf/        laser cutting profiles, one file per flat part     published
+stl/        printable parts, ready to slice                     to publish
+step/       STEP exports, for anyone using a different CAD tool to publish
+source/     native CAD files                                    to publish
 ```
 
 ## Laser cut panels
@@ -36,7 +36,8 @@ the blanks in the table above as each part is confirmed.
 ## Printed parts
 
 The corner brackets, the deck brackets, the wheel mounts, the fan housing and
-the front section are printed. STL files go in `stl/`.
+the front section are printed. STL files will go in `stl/`; they are not
+published yet.
 
 For each part, note here the material, the layer height, the wall count and
 the infill actually used, not the ones intended. A printed bracket that holds a
