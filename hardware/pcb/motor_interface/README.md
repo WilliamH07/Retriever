@@ -4,7 +4,8 @@ Sits between a MOTION ESP32 and two ZS-X11H drivers. One reference, two boards
 in service (front and rear), three spares from a lot of five. The role is read
 from two strap pins at boot.
 
-**State: redesign from a clean sheet.** The specification of record is
+**State: redesign from a clean sheet.** Design brief, with what must be fixed
+before the schematic: [`cahier-des-charges.md`](cahier-des-charges.md). The specification of record is
 [`10-spec-motor-interface.md`](../../../docs/architecture/10-spec-motor-interface.md).
 The earlier four-motor board is archived in
 [`docs/archive/pcb-v1/`](../../../docs/archive/pcb-v1/).
