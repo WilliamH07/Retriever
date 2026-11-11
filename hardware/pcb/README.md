@@ -5,11 +5,16 @@ pass (August–September 2026, EasyEDA) is archived in
 [`docs/archive/pcb-v1/`](../../docs/archive/pcb-v1/): its schematic was never
 functional, and parts of its specification contradicted the v1.2 corrections.
 
-| Board | Role | Copies | Blocked by | Folder |
+**Start here:** [`conception-v2.md`](conception-v2.md) — the cross-board brief
+(French): why v1 failed, design principles, decisions D1–D9 to settle, the
+braking-chain defect to fix, ICD v1.3 corrections. Toolchain:
+[`outils.md`](outils.md) (KiCad 10, driven from the command line).
+
+| Board | Role | Copies | Blocked by | Design brief |
 |---|---|---|---|---|
-| `safety_bus_distribution` | Passive CAN + `/SAFE` trunk, protected 5 V per node, no MCU | 1 of 5 | nothing, built first | [`safety_bus_distribution/`](safety_bus_distribution/) |
-| `motor_interface` | Hall tap to the ESP32, command path VR / DIR / EL / STOP to two ZS-X11H | 2 of 5 | M7 (Hall levels) | [`motor_interface/`](motor_interface/) |
-| `safety_power` | Battery input, static contactor, precharge, brake chopper, INA228, DC/DC rails, SAFETY ESP32 | 1 of 5 | M1, M2, M10, M12, pack and BMS label | [`safety_power/`](safety_power/) |
+| `safety_bus_distribution` | Passive CAN + `/SAFE` trunk, protected 5 V per node, no MCU | 1 of 5 | nothing, built first | [brief](safety_bus_distribution/cahier-des-charges.md) |
+| `motor_interface` | Hall tap to the ESP32, command path VR / DIR / EL / STOP to two ZS-X11H | 2 of 5 | M7 (Hall levels) | [brief](motor_interface/cahier-des-charges.md) |
+| `safety_power` | Battery input, static contactor, precharge, brake chopper, INA228, DC/DC rails, SAFETY ESP32 | 1 of 5 | M1, M2, M10, M12, pack and BMS label | [brief](safety_power/cahier-des-charges.md) |
 
 Build order, from [`11-corrections-v1.2.md`](../../docs/architecture/11-corrections-v1.2.md)
 part 6:

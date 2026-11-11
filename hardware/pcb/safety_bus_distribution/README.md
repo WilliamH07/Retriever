@@ -1,5 +1,8 @@
 # Safety bus distribution board
 
+> Design brief for the v2 redesign, with the gaps to close before the
+> schematic: [`cahier-des-charges.md`](cahier-des-charges.md).
+
 Carries the CAN bus and the `/SAFE` line to every node, and feeds each of them
 5 V through its own protection. One trunk in, eight branches out.
 

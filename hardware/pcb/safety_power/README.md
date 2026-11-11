@@ -4,7 +4,8 @@ The board that decides whether the robot may move. It takes the battery,
 switches it onto the DC bus through a static contactor, and hosts the SAFETY
 ESP32 that grants or refuses arming.
 
-**State: redesign from a clean sheet.** No schematic in this folder yet. The
+**State: redesign from a clean sheet.** Design brief, with what must be fixed
+before the schematic: [`cahier-des-charges.md`](cahier-des-charges.md). No schematic in this folder yet. The
 first attempt is archived in
 [`docs/archive/pcb-v1/`](../../../docs/archive/pcb-v1/).
 
