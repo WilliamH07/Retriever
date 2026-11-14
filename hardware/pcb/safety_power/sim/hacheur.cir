@@ -1,0 +1,33 @@
+* Hacheur de freinage safety_power — seuils ON/OFF du TLV1701 (valeurs de scripts/build.py, bloc 3)
+* Rampe lente du bus 40 -> 44 -> 40 V ; on lit CH_CMD (haut = hacheur conducteur).
+.param RT1=49.9k RT2=49.9k RB1=6.04k RB2=221 RH=1.69Meg VREF=2.5 RPU=10k RLED=4.7k
+VBUS bus 0 PWL(0 40 2 44 4 40)
+VCC v12 0 12.1                      ; sortie du LDO TPS7A4001
+VREF ref 0 {VREF}                   ; LM4040A25
+R23 bus t {RT1}
+R24 t sns {RT2}
+R25 sns b {RB1}
+R26 b 0 {RB2}
+R27 sns cmd {RH}
+C12 sns 0 1n
+* TLV1701 : sortie collecteur ouvert, conduit quand IN+ (sns) < IN- (ref)
+S1 cmd 0 ref sns SCMP
+.model SCMP SW(VT=0 VH=0.0001 RON=30 ROFF=1G)
+R28 v12 cmd {RPU}
+* charges réelles sur CH_CMD
+R33 cmd led {RLED}
+D10 led 0 LEDR
+.model LEDR D(IS=93.2p RS=42m N=3.73 BV=4 IBV=10u)
+R31 cmd chopact 100k
+R32 chopact 0 33k
+RUCC cmd 0 1G                        ; entrée UCC27517, haute impédance
+.tran 1m 4
+.control
+run
+meas tran VON find v(bus) when v(cmd)=2 rise=1
+meas tran VOFF find v(bus) when v(cmd)=2 fall=1
+meas tran VOH  max v(cmd)
+meas tran VACT max v(chopact)
+print v(cmd)[0] v(sns)[0] v(ref)[0]
+.endc
+.end

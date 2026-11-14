@@ -115,6 +115,8 @@ confortable ; à 25 A continu elle ne l'est plus. Point de relecture.
 
 ## 4. Hacheur — valeurs
 
+> ❌ **Simulation du 14/11 ([`../simulations.md`](../simulations.md) §1)** : la sortie du comparateur ne monte qu'à 4,8 V (LED `D10` et diviseur `R31`/`R32` sur le pull-up 10 kΩ). OFF réel 42,21 V, `CHOP_ACT` illisible par le TCA9555, dispersion ±0,9 V. Correction v2.1 simulée dans ce même document : à appliquer avant fabrication.
+
 Diviseur à réaction positive sur l'entrée + du `TLV1701` (sortie collecteur ouvert,
 tirée à 12 V par 10 kΩ), référence 2,500 V sur l'entrée − :
 

@@ -30,6 +30,13 @@ règles de fabrication de JLCPCB. Ils ne disent **pas** que le circuit fonctionn
 que les valeurs sont justes ni que la carte supporte le courant ou la chaleur.
 Seuls la relecture et les essais le disent.
 
+## Simulations
+
+Les blocs analogiques sensibles ont été simulés sous ngspice le 14/11 :
+[`simulations.md`](simulations.md). Résultat : précharge, filtre Hall, consigne VR et
+eFuses conformes ; **un défaut sur le hacheur de `safety_power`** (sortie du
+comparateur trop chargée), avec une correction simulée à appliquer.
+
 ## Mesures qui bloquent
 
 | Code | Quoi | Carte |
@@ -63,8 +70,9 @@ dessinée jusqu'au bout pour être relue, pas pour être commandée en l'état.
   `TPS54360B` sont routés par l'autorouteur et doivent être refaits à la main.
 - **Plan de drain du contacteur** : 8,8 cm², sous les 10–12 cm² demandés.
 - **Isolement 42 V** : 0,5 mm entre pistes (IPC B2 demande 0,6 mm).
-- **Hacheur** : seuil bas à 41,8 V, sous la tension pack pleine (42,0 V). Il
-  resterait allumé à pack plein. Proposition : 43,0 V / 42,3 V.
+- **Hacheur** : défaut trouvé en simulation (sortie du comparateur à 4,8 V au
+  lieu de 11,9 V, `CHOP_ACT` illisible, seuil OFF ±0,9 V). Correction v2.1
+  simulée : seuils 43,0 V / 42,3 V, LED sur la sortie du pilote, diviseur en 0,1 %.
 - **Stocks faibles** : `URB4812YMD-30WR3` (8 pièces), shunt WSK 2 mΩ (147).
 - **Non relus sur pièce** : empreintes des inductances et du porte-fusible,
   brochage du `B0503S`.
