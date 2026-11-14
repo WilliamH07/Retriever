@@ -75,9 +75,9 @@ M1 (BMS cut-off), M2 (pack resistance), M10 (bus capacitance), M12 (driver input
 capacitor rating), PACK_ID (pack and BMS labels), P1–P3 (ESP32 module footprint, pin
 order, PSRAM variant). See [`docs/measurements/`](../../../docs/measurements/).
 
-Pinout: `boards.safety_power` in [`hardware/icd.yaml`](../../icd.yaml). The board departs
+Pinout: `boards.safety_power` in [`hardware/icd.yaml`](../../icd.yaml). The board departed
 from ICD v1.2 in a few places (ring-lug studs, MINI 58 V fuses, new `5V_BRAKE`
-connectors J22/J23, BMS on JST GH): the proposed v1.3 changes are listed at the end of
+connectors J22/J23, BMS on JST GH): these changes are applied in ICD v1.3 and listed at the end of
 [`decisions.md`](decisions.md).
 
 <p align="center">

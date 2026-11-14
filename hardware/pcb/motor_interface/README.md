@@ -63,5 +63,5 @@ M7 (Hall output level and impedance), HALL_OC (open collector or push-pull),
 HALL_COL (wire colours, silkscreen), P1 to P3 on the ESP32 module (row spacing, pin
 order, PSRAM variant). See [`docs/measurements/`](../../../docs/measurements/).
 
-Pinout: `boards.motor_interface` in [`hardware/icd.yaml`](../../icd.yaml) (v1.2; the
-changes this board needs for v1.3 are listed at the end of [`decisions.md`](decisions.md)).
+Pinout: `boards.motor_interface` in [`hardware/icd.yaml`](../../icd.yaml) (v1.3; the
+changes this board brought to v1.3 are listed at the end of [`decisions.md`](decisions.md)).

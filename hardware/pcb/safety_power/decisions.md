@@ -394,7 +394,7 @@ Plage INA228 : `ADCRANGE = 1` (±40,96 mV) sur le bus → ±41 A ; `ADCRANGE = 0
 5. Référence de masse du côté BMS (J2 broche 3) : dépend de M3.
 6. GPIO16/17 (P3).
 
-## Propositions pour l'ICD v1.3 (non appliquées, `icd.yaml` n'est pas modifié)
+## Propositions pour l'ICD v1.3 (appliquées dans `hardware/icd.yaml` v1.3, 14 novembre 2026)
 
 - `boards.safety_power.connectors.J1`, `J3_J6`, `J12`, `J13` : type « goujon M5 / M4,
   cosse à œil » au lieu de « Phoenix PC 5/2-STF1-7,62 » (S26).

@@ -94,4 +94,4 @@ Les deux agents de conception ont listé leurs propositions à la fin de leur
 - BMS sur JST GH 4 broches isolé (`ADuM1201` + `B0503S`).
 - Nouvelle table `gpio_allocation.safety_power`.
 
-`icd.yaml` n'est pas encore modifié : c'est le prochain travail.
+Appliqué dans `icd.yaml` v1.3 (14 novembre 2026).

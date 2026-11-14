@@ -4,7 +4,7 @@ Everything needed to build the robot that is not code.
 
 | Folder | Contents | State |
 |---|---|---|
-| [`icd.yaml`](icd.yaml) | Interface control document: every connector, every pin, every wire colour, the GPIO allocation and the measurements that block routing | v1.2, single source of truth |
+| [`icd.yaml`](icd.yaml) | Interface control document: every connector, every pin, every wire colour, the GPIO allocation and the measurements that block routing | v1.3, single source of truth |
 | [`pcb/`](pcb/) | The three boards: `safety_power`, `motor_interface`, `safety_bus_distribution` | redesign from a clean sheet |
 | [`cad/`](cad/) | Laser cut DXF profiles and mechanical notes | panels cut, STEP and native sources to publish |
 | [`bom/`](bom/) | Pointer to the costed bill of materials | lives in the architecture dossier, section S |
