@@ -33,7 +33,7 @@ sécurité.
 | Terminaison ×2 | 2 × 60 Ω + `CSPLIT` | 2 × 60 Ω (E96 : 60,4 Ω 1 %) ; `CSPLIT` 4,7 nF | `CSPLIT` 📐 convention, à lire sur la fig. 10-2 de la datasheet `TCAN1042HV` |
 | Témoin de terminaison | LED bleue par cavalier | | |
 | Protection CAN, par branche | `NUP2105L` | 24 V standoff | ✅ transitoires seulement |
-| Self de mode commun, par branche | `ACT45B-510-2P-TL003` | 51 µH, 200 mA | ✅ (LCSC C88056) |
+| Self de mode commun, par branche | `ACT45B-510-2P-TL003` | 51 µH, 200 mA | ✅ (LCSC **C76584** — C88056 était la version 100 µH) |
 | 5 V par branche | `1812L050/30` **ou** `TPS259573` | 500 mA | à trancher (I9) |
 | Masse par branche | PPTC série | 500 mA | ✅ |
 | Témoin de présence | LED verte par branche | | |

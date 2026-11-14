@@ -1,0 +1,60 @@
+(footprint "NetTie_GND_STAR_4mm"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Net tie, star ground point, 4 mm copper")
+	(property "Reference" "REF**"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(uuid "0de55ff9-286c-5c53-b510-6d9419a3f015")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "NetTie_GND_STAR_4mm"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "bb5329c2-cccb-5041-944c-5ef89d6965fd")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom allow_missing_courtyard)
+	(net_tie_pad_groups "1, 2")
+	(fp_poly
+		(pts
+			(xy -2.5 -2)
+			(xy 2.5 -2)
+			(xy 2.5 2)
+			(xy -2.5 2)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.Cu")
+		(uuid "f8ef33ab-5ff8-5eee-95fb-2c2ccac91b1f")
+	)
+	(pad "1" smd rect
+		(at -2.5 0)
+		(size 3 4)
+		(layers "F.Cu" "F.Mask")
+		(uuid "6e3e4c1c-a604-5f41-9b7a-da05e829ec94")
+	)
+	(pad "2" smd rect
+		(at 2.5 0)
+		(size 3 4)
+		(layers "F.Cu" "F.Mask")
+		(uuid "9425d9ec-c766-5345-8e4e-b4c9387b5197")
+	)
+	(embedded_fonts no)
+)
