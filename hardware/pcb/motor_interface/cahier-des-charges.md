@@ -58,37 +58,40 @@ Affectation GPIO : ICD `gpio_allocation.motor_interface`. Interdits : 0–3, 6�
 
 ## 4. À corriger avant schéma
 
+> Mise à jour du 13 novembre 2026 : les douze points sont traités dans le schéma v2.0-draft ;
+> chaque choix est justifié dans [`decisions.md`](decisions.md).
+
 ### 🔴 Critiques
 
-1. **Le frein se relâche si la carte est débranchée.** `5V_BRAKE` alimente le
+1. ✅ **Résolu** (D5 appliquée, J5/J6 broche 7 NC — [`decisions.md`](decisions.md) M21, M23). **Le frein se relâche si la carte est débranchée.** `5V_BRAKE` alimente le
    pull-up du faisceau par J5/J6 broche 7, donc par la carte. Carte débranchée,
    `EL` retombe. → décision D5 de [`conception-v2.md`](../conception-v2.md) :
    ligne `5V_BRAKE` dédiée, indépendante de cette carte.
-2. **Aucune entrée `5V_BRAKE`** : ni J7 ni la dorsale ne la portent. À régler avec
+2. ✅ **Résolu** (sans objet depuis D5 — M21). **Aucune entrée `5V_BRAKE`** : ni J7 ni la dorsale ne la portent. À régler avec
    le point 1.
-3. **L'étage agnostique ne doit pas toucher `EL`.** Les options pull-down et
+3. ✅ **Résolu** (options sur `DIR`/`STOP` seulement — M20, M21). **L'étage agnostique ne doit pas toucher `EL`.** Les options pull-down et
    inverseur sur `EL` casseraient le fail-safe. Le limiter à `DIR` et `STOP`.
 
 ### 🟠 À compléter
 
-4. **Liaison `GND_MOT`–`GND_LOGIC`** : les taps Hall imposent une référence
+4. ✅ **Résolu** (trois masses séparées, aucune liaison, risque documenté — M6 à M9). **Liaison `GND_MOT`–`GND_LOGIC`** : les taps Hall imposent une référence
    commune. Elle doit suivre D4 (point unique sur `safety_power`) et ne pas créer
    de boucle par la dorsale.
-5. **Double source 5 V** : `5V_LOGIC` arrive par J7 et par la broche 1 de la
+5. ✅ **Résolu** (dorsale seule, J7 supprimé — M1). **Double source 5 V** : `5V_LOGIC` arrive par J7 et par la broche 1 de la
    dorsale. Une seule source, ou une règle de priorité par diode.
-6. **Pull-downs de grille** : un sur l'entrée `GPIO26` de la porte, un sur chaque
+6. ✅ **Résolu** (M22). **Pull-downs de grille** : un sur l'entrée `GPIO26` de la porte, un sur chaque
    grille `DIR`/`STOP`. Le schéma actuel n'en montre qu'un.
-7. **`MCP4728` en 5 V** : son seuil haut I²C est probablement de 0,7 × VDD, au-dessus
+7. ✅ **Résolu** (`VIH` = 0,7 VDD confirmé : DAC en 3,3 V, réf. interne, gain 2,5 — M16, M17). **`MCP4728` en 5 V** : son seuil haut I²C est probablement de 0,7 × VDD, au-dessus
    d'un bus 3,3 V. Vérifier sur datasheet ; sinon translateur, ou DAC en 3,3 V avec
    un gain de 1,515.
-8. **ADS1115** : adresse, alimentation, pull-up et coefficient B des NTC, valeurs
+8. ✅ **Résolu** (M25 à M27). **ADS1115** : adresse, alimentation, pull-up et coefficient B des NTC, valeurs
    du diviseur de rôle.
-9. **Origine des rails 3,3 V et 5 V** des circuits annexes (régulateur du module,
+9. ✅ **Résolu** (M4, M5). **Origine des rails 3,3 V et 5 V** des circuits annexes (régulateur du module,
    amont ou aval du `LM66100`).
-10. **LED « frein serré »** : tampon tolérant 5 V à compter.
-11. **Révision matérielle** lisible par le firmware (diviseur ou straps), publiée
+10. ✅ **Résolu** (M24). **LED « frein serré »** : tampon tolérant 5 V à compter.
+11. ✅ **Résolu** (M28). **Révision matérielle** lisible par le firmware (diviseur ou straps), publiée
     dans le heartbeat.
-12. **`DMG1012T` en SOT-523** : difficile à retoucher. Repli `BSS138` en SOT-23
+12. ✅ **Résolu** (`AO3400A` SOT-23 — M19). **`DMG1012T` en SOT-523** : difficile à retoucher. Repli `BSS138` en SOT-23
     à évaluer.
 
 ## 5. Mesures bloquantes

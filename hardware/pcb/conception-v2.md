@@ -83,15 +83,63 @@ statut passe à « tranché » avec la date quand William a choisi.
 
 | # | Question | Options | Recommandation | Statut |
 |---|---|---|---|---|
-| **D1** | Outil de CAO | KiCad · EasyEDA Pro | **KiCad 10** : format texte, `kicad-cli` pour ERC/DRC/exports, scriptable en Python. Voir [`outils.md`](outils.md) | à trancher |
-| **D2** | Rails de `safety_power` (12 V calculateur, 12 V auxiliaire, 5 V) | convertisseurs conçus sur carte · modules DC/DC | **Modules** entrée ≥ 60 V, montés sur la carte. C'est là que la v1 a échoué ; le gain d'un convertisseur maison est nul à 1 exemplaire | à trancher |
-| **D3** | Manque de GPIO sur l'ESP32 SAFETY (~33 signaux pour 21 broches) | expander I²C · second MCU · ESP32-S3 | **Expander I²C** (type `TCA9555`) pour les signaux lents (LED, présences, straps) ; les signaux de sécurité restent sur GPIO directs | à trancher |
-| **D4** | Masses | non défini aujourd'hui | **Un seul point de liaison** `GND_LOGIC`–`BUS_N`, sur `safety_power`, sérigraphié `★ GND STAR`. Aucune autre liaison, nulle part | à trancher |
-| **D5** | Alimentation du pull-up de frein `5V_BRAKE` | par `motor_interface` (actuel) · ligne dédiée | **Ligne dédiée** de `safety_power` au faisceau des variateurs, sans passer par `motor_interface` (§5.2) | à trancher |
-| **D6** | Isolation du calculateur X1 | adaptateur USB-CAN isolé · renoncer à l'isolation | **Adaptateur isolé** ; sinon l'isolation de `GND_COMPUTE` est fictive (le lidar et l'adaptateur la court-circuitent) | à trancher |
-| **D7** | Watchdog `TPL5010` sur `/SAFE` | direct · avec verrou | **Verrou matériel** : `RSTn` est une impulsion, pas un état | à trancher |
-| **D8** | Module MCU | DevKitC sur supports · WROOM soudé | **DevKitC sur supports Mill-Max** (remplaçable sans fer). Empreinte validée par P1 | proposé en v1.2 |
-| **D9** | Fabrication | JLCPCB assemblé · nu + soudure main | **JLCPCB, 4 couches, assemblage des CMS**, traversants soudés à la main | à trancher |
+| **D1** | Outil de CAO | KiCad · EasyEDA Pro | **KiCad 10** : format texte, `kicad-cli` pour ERC/DRC/exports, scriptable en Python. Voir [`outils.md`](outils.md) | **tranché 13/11** |
+| **D2** | Rails de `safety_power` (12 V calculateur, 12 V auxiliaire, 5 V) | convertisseurs conçus sur carte · modules DC/DC | **Modules** entrée ≥ 60 V, montés sur la carte. C'est là que la v1 a échoué ; le gain d'un convertisseur maison est nul à 1 exemplaire | **tranché 13/11** |
+| **D3** | Manque de GPIO sur l'ESP32 SAFETY (~33 signaux pour 21 broches) | expander I²C · second MCU · ESP32-S3 | **Expander I²C** (type `TCA9555`) pour les signaux lents (LED, présences, straps) ; les signaux de sécurité restent sur GPIO directs | **tranché 13/11** |
+| **D4** | Masses | non défini aujourd'hui | **Un seul point de liaison** `GND_LOGIC`–`BUS_N`, sur `safety_power`, sérigraphié `★ GND STAR`. Aucune autre liaison, nulle part | **tranché 13/11** |
+| **D5** | Alimentation du pull-up de frein `5V_BRAKE` | par `motor_interface` (actuel) · ligne dédiée | **Ligne dédiée** de `safety_power` au faisceau des variateurs, sans passer par `motor_interface` (§5.2) | **tranché 13/11** |
+| **D6** | Isolation du calculateur X1 | adaptateur USB-CAN isolé · renoncer à l'isolation | **Adaptateur isolé** ; sinon l'isolation de `GND_COMPUTE` est fictive (le lidar et l'adaptateur la court-circuitent) | **tranché 13/11** |
+| **D7** | Watchdog `TPL5010` sur `/SAFE` | direct · avec verrou | **Verrou matériel** : `RSTn` est une impulsion, pas un état | **tranché 13/11** |
+| **D8** | Module MCU | DevKitC sur supports · WROOM soudé | **DevKitC sur supports Mill-Max** (remplaçable sans fer). Empreinte validée par P1 | **tranché 13/11** |
+| **D9** | Fabrication | JLCPCB assemblé · nu + soudure main | **JLCPCB, 4 couches, assemblage des CMS**, traversants soudés à la main | **tranché 13/11** |
+
+### 4 bis. Décisions tranchées le 13 novembre 2026
+
+William a délégué ces choix. Ils s'imposent aux trois cartes ; les contester revient à
+modifier ce paragraphe d'abord.
+
+**D2 — Rails de `safety_power`.** Tout ce qui n'est pas la traction est pris **en amont
+du contacteur** : le contacteur ne commute que le bus des variateurs et du hacheur.
+Le coupe-batterie manuel reste l'interrupteur général.
+
+| Rail | Source | Réalisation | Charge prévue |
+|---|---|---|---|
+| `5V_HOTEL` | batterie, amont contacteur | régulateur à découpage à transistors **intégrés** (pas de contrôleur à FET externes, cause de l'échec v1), entrée ≥ 60 V, 3 A | ESP32 SAFETY via LDO 3,3 V, dorsale `5V_LOGIC` via eFuse, `5V_BRAKE` via eFuse |
+| `3V3_HOTEL` | `5V_HOTEL` | LDO | ESP32 SAFETY, pull-up `/SAFE`, logique |
+| `12V_COMPUTE` | batterie, amont | **module isolé** 30 W, entrée 18–75 V | X1 (et le lidar, alimenté par l'USB du X1) |
+| `12V_AUX` | batterie, amont | régulateur à découpage à transistors intégrés, entrée ≥ 60 V, 2 A | ventilateurs, auxiliaires |
+
+**D3 — GPIO de l'ESP32 SAFETY.** Expander I²C `TCA9555` (16 E/S) pour les signaux
+lents : LED, présence, ventilateurs tachy, straps. Restent sur GPIO directs : commande
+du contacteur (`INP1`, `INP2`), précharge, hacheur (lecture), `/SAFE`, CAN, I²C,
+SPI de l'IMU, UART BMS, `TPL5010`.
+
+**D4 — Masses.** Un seul point de liaison `GND_LOGIC`–`BUS_N`, sur `safety_power`,
+sérigraphié `★ GND STAR`. `GND_MOT` des cartes `motor_interface` est le `BUS_N` des
+variateurs ; il rejoint `GND_LOGIC` uniquement par ce point. `GND_COMPUTE` est isolé
+par le module 12 V et l'adaptateur USB-CAN isolé.
+
+**D5 — `5V_BRAKE`.** Fourni par `safety_power` sur deux connecteurs dédiés
+(avant, arrière), câblés directement au faisceau des variateurs où se trouve la
+résistance de tirage de `EL`. **`motor_interface` ne porte plus `5V_BRAKE`** : la
+broche 7 de J5/J6 devient non connectée, le réservoir 2200 µF passe sur
+`safety_power`. Carte `motor_interface` débranchée → `EL` reste tiré → frein serré.
+
+**D6 — Calculateur isolé.** Module 12 V isolé + adaptateur USB-CAN isolé
+(CANable Pro 1.1). Le lidar reste côté calculateur.
+
+**D7 — Watchdogs.** Sur `safety_power`, le `TPL5010` agit sur `/SAFE` à travers une
+**bascule D** (`74LVC1G74`) : une impulsion de `RSTn` remet la bascule à zéro, la
+bascule tire `/SAFE` au niveau bas et le maintient jusqu'à un réarmement logiciel
+explicite. Mise sous tension : bascule à zéro par un réseau RC. Sur `motor_interface`,
+le `TPL5010` redémarre l'ESP32 (broche `EN`) ; pendant le redémarrage `GPIO26` flotte,
+son pull-down bloque le MOSFET et le frein se serre.
+
+**D8 — Module.** ESP32-DevKitC V4 sur supports, entraxe 25,40 mm **sous réserve de P1**.
+
+**D9 — Fabrication.** JLCPCB, assemblage des CMS. `motor_interface` en 4 couches
+(recommandation Espressif, plan de masse plein sous le module). `safety_power` en
+4 couches, cuivre 2 oz externe.
 
 ## 5. Interfaces communes
 
@@ -143,9 +191,9 @@ ouvert.
 |---|---|---|---|
 | `BUS` 30–42 V | aval contacteur | non | variateurs, hacheur |
 | `5V_HOTEL` / `3V3_HOTEL` | amont contacteur | **oui** | ESP32 SAFETY, pull-up `/SAFE`, `5V_BRAKE` |
-| `12V_COMPUTE` | à trancher (D2, D6) | à trancher | X1 |
-| `12V_AUX` | à trancher (D2) | à trancher | ventilateurs, lidar |
-| `5V_LOGIC` | à trancher (§6, I3) | à trancher | dorsale, nœuds MOTION |
+| `12V_COMPUTE` | à trancher (D2, D6) | **tranché 13/11** | X1 |
+| `12V_AUX` | à trancher (D2) | **tranché 13/11** | ventilateurs, lidar |
+| `5V_LOGIC` | à trancher (§6, I3) | **tranché 13/11** | dorsale, nœuds MOTION |
 
 Tout composant relié au bus est coté **60 V minimum** ; fusibles et
 porte-fusibles **58 V DC** (C-S3).

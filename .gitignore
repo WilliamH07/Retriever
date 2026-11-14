@@ -56,3 +56,10 @@ bags/
 .DS_Store
 Thumbs.db
 stale-*
+
+# KiCad : fichiers locaux et intermédiaires
+hardware/pcb/*/build/
+*.kicad_prl
+*-backups/
+fp-info-cache
+\#auto_saved_files#
