@@ -1,7 +1,24 @@
 # Safety bus distribution board
 
-> Design brief for the v2 redesign, with the gaps to close before the
-> schematic: [`cahier-des-charges.md`](cahier-des-charges.md).
+> **v2.0 is designed** — schematic and layout generated, ERC and DRC clean,
+> not yet fabricated. Every choice and its reason: [`decisions.md`](decisions.md)
+> (French). Brief: [`cahier-des-charges.md`](cahier-des-charges.md).
+
+<p align="center">
+  <img src="fab/render_top.png" width="100%" alt="safety_bus_distribution v2.0, top view">
+</p>
+
+| | |
+|---|---|
+| Size | 110 × 72 mm, 2 layers, 4 × M3 |
+| Parts | 122 placed by the assembler, 9 Micro-Fit connectors through-hole |
+| Per branch | eFuse `TPS259531` (≈0.95 A), ground PPTC 1.1 A / 48 V, CAN choke `ACT45B`, `NUP2105L` |
+| Sources | [`kicad/`](kicad/) — KiCad 10 project, **generated** by [`scripts/build.py`](scripts/build.py) |
+| Fabrication | [`fab/`](fab/) — Gerber zip, JLCPCB BOM and placement, schematic PDF, renders |
+
+Rebuild everything: `./build.sh` then `./fab.sh` (needs the toolchain in
+[`../outils.md`](../outils.md)). Do not edit the KiCad files by hand: change
+`scripts/build.py` and rebuild, or the next build overwrites the change.
 
 Carries the CAN bus and the `/SAFE` line to every node, and feeds each of them
 5 V through its own protection. One trunk in, eight branches out.

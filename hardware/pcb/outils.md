@@ -105,6 +105,29 @@ Claude ne passe aucune commande et n'entre aucun moyen de paiement.
 - **Le contrôle visuel passe par des rendus** (`kicad-cli` en SVG ou PNG) ; il ne
   remplace pas la relecture de William dans KiCad.
 
+## Le générateur
+
+Les cartes ne sont pas dessinées à la souris. Un script Python par carte
+(`<carte>/scripts/build.py`) décrit le circuit **une seule fois** : composants,
+références LCSC, broche par broche, et position sur la carte. Deux modules
+communs en tirent les deux fichiers KiCad :
+
+| Module | Rôle |
+|---|---|
+| [`scripts/kicadgen.py`](scripts/kicadgen.py) | écrit le schéma `.kicad_sch` (symboles des bibliothèques KiCad, une étiquette de réseau par broche) |
+| [`scripts/kicadpcb.py`](scripts/kicadpcb.py) | construit la carte : empreintes liées aux symboles par UUID, règles, plans de cuivre, aller-retour Freerouting |
+| [`scripts/fab.py`](scripts/fab.py) | BOM et fichier de placement au format JLCPCB |
+
+Parce que schéma et carte sortent de la même description, le contrôle
+« parité schéma » du DRC doit toujours donner 0. Les UUID sont déterministes :
+régénérer ne casse pas le lien entre les deux.
+
+Ordre de construction (`build.sh`) : schéma → placement → remplissage des plans
+par `kicad-cli` → routage Freerouting → plans de cuivre → remplissage → ERC et
+DRC. Les plans de cuivre sont posés **après** le routage : posés avant,
+Freerouting compte sur eux pour la masse et le 5 V, puis les pistes les
+découpent en îlots.
+
 ## Organisation des fichiers par carte
 
 ```
