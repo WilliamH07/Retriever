@@ -1,0 +1,29 @@
+* Prélèvement Hall motor_interface (une voie) : pull-up 2,2 k, 2,2 k série, 10 nF, BAT54S, SN74LVC3G17 à 3,3 V
+* Capteur collecteur ouvert à 144,5 Hz (578 tr/min à vide, spec 10 §Z). Bruit de hachage 16 kHz sur GND_MOT.
+.param VTP=1.8 VTM=1.0 VN=1.0
+* masse moteur vue depuis la masse logique : décalage de hachage 16 kHz, VN crête
+VGM gm 0 PULSE(0 {VN} 0 200n 200n 31u 62.5u)
+V5 v5 gm 5
+* capteur Hall : transistor ouvert/fermé à 144,5 Hz
+VH hctl 0 PULSE(0 1 1m 1u 1u 3.46m 6.92m)
+SH h gm hctl 0 SHALL
+.model SHALL SW(VT=0.5 VH=0 RON=50 ROFF=10Meg)
+* câble 1 m : 100 pF
+CC h gm 100p
+RPU h v5 2.2k
+RS h f 2.2k
+CF f gm 10n
+D1 f v5 BAT54
+D2 gm f BAT54
+.model BAT54 D(IS=0.1u N=1 RS=1 CJO=10p BV=30)
+* SN74LVC3G17 : entrée de Schmitt (seuils VTP / VTM), référencée à la masse logique (0)
+BO o 0 V = V(f) > V(th) ? 3.3 : 0
+RD o od 1k
+CD od 0 1p
+BTH th 0 V = V(od) > 1.65 ? {VTM} : {VTP}
+.tran 0.2u 16m
+.control
+run
+wrdata /tmp/hall_out.txt v(od) v(f) v(h)
+.endc
+.end

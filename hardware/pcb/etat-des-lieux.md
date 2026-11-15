@@ -30,6 +30,13 @@ règles de fabrication de JLCPCB. Ils ne disent **pas** que le circuit fonctionn
 que les valeurs sont justes ni que la carte supporte le courant ou la chaleur.
 Seuls la relecture et les essais le disent.
 
+## Simulations
+
+Les blocs analogiques sensibles ont été simulés sous ngspice le 14/11 :
+[`simulations.md`](simulations.md). Résultat : précharge, filtre Hall, consigne VR et
+eFuses conformes ; **un défaut sur le hacheur de `safety_power`** (sortie du
+comparateur trop chargée), **corrigé le 15/11** (ERC 0, DRC 0, parité 0).
+
 ## Mesures qui bloquent
 
 | Code | Quoi | Carte |
@@ -63,8 +70,11 @@ dessinée jusqu'au bout pour être relue, pas pour être commandée en l'état.
   `TPS54360B` sont routés par l'autorouteur et doivent être refaits à la main.
 - **Plan de drain du contacteur** : 8,8 cm², sous les 10–12 cm² demandés.
 - **Isolement 42 V** : 0,5 mm entre pistes (IPC B2 demande 0,6 mm).
-- **Hacheur** : seuil bas à 41,8 V, sous la tension pack pleine (42,0 V). Il
-  resterait allumé à pack plein. Proposition : 43,0 V / 42,3 V.
+- **Hacheur** : défaut trouvé en simulation le 14/11 et corrigé le 15/11 (seuils
+  43,0 V / 42,3 V, LED sur la sortie du pilote, diviseur en 0,1 %). Deux pièces
+  nouvelles à vérifier en stock avant commande : `AR03BTCX4992` (C2828622) et
+  `TD03G6191BT` (C667011). **Reste à confirmer** : M12, et le firmware qui lit
+  `CHOP_ACT`.
 - **Stocks faibles** : `URB4812YMD-30WR3` (8 pièces), shunt WSK 2 mΩ (147).
 - **Non relus sur pièce** : empreintes des inductances et du porte-fusible,
   brochage du `B0503S`.
@@ -94,4 +104,4 @@ Les deux agents de conception ont listé leurs propositions à la fin de leur
 - BMS sur JST GH 4 broches isolé (`ADuM1201` + `B0503S`).
 - Nouvelle table `gpio_allocation.safety_power`.
 
-`icd.yaml` n'est pas encore modifié : c'est le prochain travail.
+Appliqué dans `icd.yaml` v1.3 (14 novembre 2026).

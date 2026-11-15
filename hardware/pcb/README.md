@@ -44,7 +44,7 @@ Corrections that a new schematic must carry, whatever the tool:
 
 - `/SAFE` does not brake: ZS-X11H `STOP` is active low and coasts. Braking
   comes from `EL`, pulled up to `5V_BRAKE` on the loom (C-S1).
-- The brake chopper is mandatory, 22 Ω / 100 W, on at 42.5 V, off at 41.8 V
+- The brake chopper is mandatory, 22 Ω / 100 W, on at 43.0 V, off at 42.3 V since v2.1; was 42.5 / 41.8 V
   (C-S2).
 - Every fuse on the 42 V side is rated 58 V DC: `BF1 58V` in MIDI 498 holders,
   MRBF at the battery (C-S3).

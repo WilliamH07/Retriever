@@ -115,27 +115,39 @@ confortable ; à 25 A continu elle ne l'est plus. Point de relecture.
 
 ## 4. Hacheur — valeurs
 
+> **Corrigé le 15/11 (v2.1)** après simulation ([`../simulations.md`](../simulations.md) §1). La v2.0 chargeait la
+> sortie du comparateur avec la LED `D10` et le diviseur `R31`/`R32` : elle ne montait qu'à 4,8 V, V_OFF réel 42,21 V,
+> `CHOP_ACT` illisible par le TCA9555, dispersion ±0,9 V. Les valeurs ci-dessous sont celles de la carte actuelle.
+
 Diviseur à réaction positive sur l'entrée + du `TLV1701` (sortie collecteur ouvert,
 tirée à 12 V par 10 kΩ), référence 2,500 V sur l'entrée − :
 
-- R_t = 2 × 49,9 kΩ = 99,8 kΩ (deux résistances : 20 V chacune, sous les 75 V d'une 0603)
-- R_b = 6,04 kΩ + 221 Ω = 6,261 kΩ
+- R_t = 2 × 49,9 kΩ **0,1 %** = 99,8 kΩ (deux résistances : 20 V chacune, sous les 75 V d'une 0603)
+- R_b = **6,19 kΩ 0,1 %** ; `R26` est un strap 0 Ω (l'empreinte de la v2.0 est conservée)
 - R_h = 1,69 MΩ
-- **V_ON = 2,5 × (1 + R_t/R_b + R_t/R_h) = 2,5 × (1 + 15,940 + 0,0591) = 42,50 V**
-- V_OH ≈ 12 V × 1,69 M / (1,69 M + 10 k) = 11,93 V
-- **ΔV = V_OH × R_t / R_h = 0,70 V → V_OFF = 41,80 V**
+- **V_ON = 2,5 × (1 + R_t/R_b + R_t/R_h) = 2,5 × (1 + 16,123 + 0,0591) = 42,95 V**
+- V_OH ≈ 11,2 V (pull-up 10 kΩ vers 12,1 V, chargé par `R31` + `R32` = 133 kΩ) : **sortie du
+  comparateur uniquement**. La LED `D10` est maintenant sur la sortie du pilote `CH_DRV` (`R33` 4,7 kΩ).
+- **ΔV = V_OH × R_t / R_h = 0,66 V → V_OFF = 42,29 V**
+- `CHOP_ACT` = 11,2 V × 33 / 133 = 2,78 V, au-dessus du seuil haut du TCA9555 (0,7 × 3,3 V = 2,31 V)
 - Filtre : 1 nF sur le nœud (≈ 6 µs)
-- Erreur de seuil : LM4040A 0,1 %, résistances 1 % → ±0,4 V pire cas sur V_ON. **Trier ou
-  mesurer** : la recette (étape 6) mesure le seuil réel.
+- Erreur de seuil (simulation, `sim/corners.py` : résistances du diviseur 0,1 %, `R27` 1 %,
+  LM4040A 0,1 %, offset 2,5 mV) : **V_ON 42,78 à 43,12 V, V_OFF 42,12 à 42,46 V**. Le pire
+  V_OFF reste au-dessus du pack plein (42,0 V). La recette (étape 6) mesure le seuil réel.
 - LDO `TPS7A4001` : 1,173 V × (1 + 93,1 k / 10 k) = 12,1 V ; charge ≈ 4 mA → 0,15 W à 42 V.
+- Entrée du `UCC27517` : 11,2 V, sous les 18 V recommandés (20 V maximum).
 
-⚠️ **Question ouverte n° 1 — le seuil bas est sous la tension de pleine charge.** Pack plein
-= 42,0 V > V_OFF = 41,8 V. Contacteur fermé, si une régénération porte le bus à 42,5 V sur
-un pack plein, le hacheur s'allume et **ne s'éteint plus** tant que le pack n'est pas
-descendu à 41,8 V : 82 W dans la résistance pendant plusieurs minutes. Les seuils
-viennent du cahier (📐, « à recaler après M1 et M12 ») et sont appliqués tels quels.
-Proposition : ON 43,0 V / OFF 42,3 V (R_b = 6,19 kΩ + 0 Ω, à recalculer), à trancher
-avec M12.
+✅ **Ancienne question ouverte n° 1 — résolue le 15/11.** Les seuils du cahier (42,5 / 41,8 V)
+mettaient V_OFF sous la tension de pleine charge (42,0 V) : sur un pack plein, le hacheur
+n'aurait plus cessé de conduire (82 W pendant plusieurs minutes). Seuils portés à
+**ON 43,0 V / OFF 42,3 V**, comme proposé. À confirmer avec M12 (tension des condensateurs
+des ZS-X11H) : ON à 43,0 V laisse 0,5 V de plus qu'avant avant l'écrêtage.
+
+**Mise à jour de la carte.** La carte a été modifiée **sur place** (pas de nouveau routage) : valeurs
+de `R23` à `R26`, `R33` déplacée du réseau `CH_CMD` vers `CH_DRV` (24,8 mm sur F.Cu, tracés
+par `patchroute`). `scripts/build.py` est à jour ; un nouveau `./build.sh` redonnerait une carte
+équivalente, pas identique. Pièces nouvelles (extended chez JLCPCB, **stock non vérifié**) :
+`AR03BTCX4992` (C2828622, 49,9 kΩ 0,1 %) et `TD03G6191BT` (C667011, 6,19 kΩ 0,1 %).
 
 ## 5. Rails hôtel — valeurs
 
@@ -318,7 +330,7 @@ Plage INA228 : `ADCRANGE = 1` (±40,96 mV) sur le bus → ±41 A ; `ADCRANGE = 0
 | 2 | Pas d'affectation GPIO | ✅ **résolu** : §7 (22 GPIO, expander 16 E/S) |
 | 3 | Stock du `TPS4810-Q1` | ✅ **résolu** : `TPS48100QDGXRQ1` C43131316, 903 pièces |
 | 4 | Valeurs du `TPS4810-Q1` | ✅ **résolu** : S3–S8, §3 (C_TMR 6,8 nF au lieu de 470 nF) |
-| 5 | Hacheur : comparateur, référence, alimentation | ✅ **résolu** : S15, §4 (⚠️ question ouverte n° 1 sur le seuil bas) |
+| 5 | Hacheur : comparateur, référence, alimentation | ✅ **résolu** : S15, §4 (seuil bas corrigé le 15/11 : 43,0 / 42,3 V) |
 | 6 | Point étoile, liaison `SHIELD` | ✅ étoile résolue (S27). `SHIELD` : traversant J15 ↔ J16, **relié à rien** sur cette carte (ICD : blindage relié côté X1) |
 | 7 | Ligne `5V_BRAKE` dédiée | ✅ **résolu** : S24 |
 | 8 | Décharge active du bus | ✅ **résolu** par le hacheur (S14) — à valider en recette |
@@ -378,14 +390,14 @@ Plage INA228 : `ADCRANGE = 1` (±40,96 mV) sur le bus → ±41 A ; `ADCRANGE = 0
 6. **Routage** : refaire à la main la couche In1 (aucun signal sur les plans) et
    **mise en page des deux régulateurs à découpage** (boucle chaude, retour du plan,
    placement de la diode) et stabilité de la compensation.
-7. **Hacheur** : comportement aux seuils, hystérésis, rapport cyclique en descente longue,
-   et la question ouverte n° 1.
+7. **Hacheur** : comportement aux seuils (rampe du labo jusqu'à **44 V**, conduction attendue vers
+   43,0 V, arrêt vers 42,3 V), hystérésis, rapport cyclique en descente longue.
 8. **Coordination des protections** : MRBF, fusibles MINI 58 V dans un porte-fusible CI à
    25 A, SCP du contrôleur, BMS.
 
 ## Questions ouvertes
 
-1. Seuil bas du hacheur sous la tension de pleine charge (§4).
+1. ~~Seuil bas du hacheur sous la tension de pleine charge~~ : résolu le 15/11 (§4), à confirmer avec M12.
 2. Plan de drain de Q1 sous la recommandation de l'étude `12` : accepter, ou agrandir la
    carte (déplacer le goujon `BAT+`) ?
 3. Fusibles MINI 58V sur porte-fusible CI au lieu de BF1 en MIDI 498 : à confirmer.
@@ -394,7 +406,7 @@ Plage INA228 : `ADCRANGE = 1` (±40,96 mV) sur le bus → ±41 A ; `ADCRANGE = 0
 5. Référence de masse du côté BMS (J2 broche 3) : dépend de M3.
 6. GPIO16/17 (P3).
 
-## Propositions pour l'ICD v1.3 (non appliquées, `icd.yaml` n'est pas modifié)
+## Propositions pour l'ICD v1.3 (appliquées dans `hardware/icd.yaml` v1.3, 14 novembre 2026)
 
 - `boards.safety_power.connectors.J1`, `J3_J6`, `J12`, `J13` : type « goujon M5 / M4,
   cosse à œil » au lieu de « Phoenix PC 5/2-STF1-7,62 » (S26).
