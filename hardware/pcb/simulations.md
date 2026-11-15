@@ -7,7 +7,7 @@ en recette.
 
 | Bloc | Carte | Résultat |
 |---|---|---|
-| Hacheur de freinage | `safety_power` | ❌ **défaut trouvé**, correction simulée |
+| Hacheur de freinage | `safety_power` | ❌ défaut trouvé le 14/11 → ✅ **corrigé le 15/11** |
 | Précharge | `safety_power` | ✅ conforme, une consigne logiciel à respecter |
 | Prélèvement Hall | `motor_interface` | ✅ conforme jusqu'à 0,5 V de bruit de masse |
 | Consigne VR | `motor_interface` | ✅ conforme (calcul) |
@@ -33,7 +33,7 @@ monte à 11,9 V. En réalité, la LED `D10` (par `R33` 4,7 kΩ) et le diviseur
 **Correction proposée (v2.1), simulée** — `hacheur_v21.cir` :
 
 - la LED passe sur la sortie du pilote `CH_DRV` (12 V), avec 10 kΩ ;
-- `R25` + `R26` → une seule 6,19 kΩ ; `R27` → 1,58 MΩ ;
+- `R25` + `R26` → une seule 6,19 kΩ (`R26` devient un strap 0 Ω) ; `R27` inchangée ;
 - `R23` à `R26` en **0,1 %**.
 
 | | v2.1 nominal | v2.1 pire cas (0,1 %) |
@@ -43,8 +43,12 @@ monte à 11,9 V. En réalité, la LED `D10` (par `R33` 4,7 kΩ) et le diviseur
 | `CHOP_ACT` | 2,78 V | lu haut par le TCA9555 |
 
 Cette correction règle aussi la question ouverte n° 1 de `decisions.md` (seuil bas
-sous la pleine charge). Elle change le routage autour de `D10` : **la carte doit être
-régénérée**.
+sous la pleine charge).
+
+**Appliquée le 15/11** à `safety_power` (carte modifiée sur place, ERC 0, DRC 0, parité 0).
+Valeurs retenues : `R25` 6,19 kΩ 0,1 %, `R26` 0 Ω, `R23`/`R24` 49,9 kΩ 0,1 %, `R27` **1,69 MΩ
+conservée** (pas de pièce de plus), `R33` sur `CH_DRV`. Résultat simulé (`hacheur_v21.cir`) :
+ON 42,95 V, OFF 42,29 V ; pire cas OFF 42,12 à 42,46 V.
 
 ## 2. Précharge — `safety_power/sim/precharge.cir`
 

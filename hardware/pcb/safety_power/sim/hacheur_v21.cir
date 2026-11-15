@@ -1,6 +1,6 @@
 * Hacheur v2.1 proposé : LED déplacée sur la sortie du pilote, seuils 43,0 / 42,3 V
 * Rampe lente du bus 40 -> 44 -> 40 V ; on lit CH_CMD (haut = hacheur conducteur).
-.param RT1=49.9k RT2=49.9k RB1=6.19k RB2=0.001 RH=1.58Meg VREF=2.5 RPU=10k RLED=4.7k
+.param RT1=49.9k RT2=49.9k RB1=6.19k RB2=0.001 RH=1.69Meg VREF=2.5 RPU=10k RLED=4.7k
 VBUS bus 0 PWL(0 40 2 44 4 40)
 VCC v12 0 12.1                      ; sortie du LDO TPS7A4001
 VREF ref 0 {VREF}                   ; LM4040A25
@@ -15,7 +15,7 @@ S1 cmd 0 ref sns SCMP
 .model SCMP SW(VT=0 VH=0.0001 RON=30 ROFF=1G)
 R28 v12 cmd {RPU}
 * charges réelles sur CH_CMD
-R33 drv led 10k
+R33 drv led 4.7k
 D10 led 0 LEDR
 .model LEDR D(IS=93.2p RS=42m N=3.73 BV=4 IBV=10u)
 R31 cmd chopact 100k

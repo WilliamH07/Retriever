@@ -19,7 +19,7 @@
 
 meta:
   version: "1.3"
-  date: "2026-11-14"
+  date: "2026-11-15"
   changelog:
     # v1.3 — 14 novembre 2026 : alignement sur les cartes v2 (hardware/pcb/*/decisions.md)
     - "D5, S24, M21, M23 : 5V_BRAKE fourni par safety_power sur J22/J23 (nouveaux) ; motor_interface J5/J6 broche 7 -> NC ; réservoir 2200 uF sur safety_power derrière une diode"
@@ -42,7 +42,7 @@ meta:
     - "I4, S23 : J8 = 12V_AUX seulement (bobine et relais supprimés), TPS259573 OVLO 16,1 V, 2,0 A ; J9 TPS259531 1,5 A partagé avec la dorsale"
     - "S1–S10 : contacteur statique — TPS48100QDGXRQ1, IPB017N10N5LF, SMCJ48CA bidirectionnelle, SCP 99 A / 100 us verrouillé"
     - "S12, S13 : précharge SUD50P10-43L + MMBT5551 ; diagnostic de collage sur le noeud MID"
-    - "S14, S15 : hacheur alimenté par le bus via LDO 100 V TPS7A4001 ; décharge active par le hacheur. Seuils 42,5 / 41,8 V conservés — question ouverte"
+    - "S14, S15 : hacheur alimenté par le bus via LDO 100 V TPS7A4001 ; décharge active par le hacheur. Seuils portés à 43,0 / 42,3 V le 15/11 (simulation : le seuil bas était sous la pleine charge ; SORTIE du comparateur trop chargée) — v2.1"
     - "S16, S17, S18, I8 : /SAFE tiré bas par le verrou 74LVC1G74 (TPL5010 ET comparateur ACS758 LM2903) et par le MOSFET SAFE_HOLD"
     - "S20–S22, D2, D6 : rails hôtel en amont du contacteur ; lidar côté calculateur"
     - "S31–S34 : BNO085, ventilateurs, WS2812B (74AHCT1G125), sonde J21"
@@ -280,19 +280,18 @@ boards:
         note: >
           Résistance TT WH100-22RJI, 22 Ohm 100 W, impédance thermique 1 degC/W.
           MONTAGE SUR CHÂSSIS OU DISSIPATEUR, JAMAIS SUR LE PCB.
-          Commande : comparateur à hystérésis ANALOGIQUE, ON 42.5 V / OFF 41.8 V,
+          Commande : comparateur à hystérésis ANALOGIQUE, ON 43.0 V / OFF 42.3 V (v2.1 ; cahier : 42.5 / 41.8 V),
           alimenté par le bus lui-même via un LDO 100 V (TPS7A4001, 12 V),
           EN AVAL DU CONTACTEUR.
           Aucune dépendance à un microcontrôleur ni à un rail logique.
         chopper: "TLV1701 + référence LM4040A25 (0,1 %) + pilote UCC27517 + MOSFET IPB017N10N5LF (S15)"
         threshold_note: >
-          🔴 QUESTION OUVERTE n° 1 (safety_power/decisions.md §4) : V_OFF = 41,8 V est
-          SOUS la tension de pleine charge (42,0 V). Sur un pack plein, une
-          régénération qui allume le hacheur ne l'éteint plus avant que le pack
-          descende à 41,8 V : 82 W dans la résistance pendant plusieurs minutes.
-          Valeurs 42,5 / 41,8 V CONSERVÉES ici (cahier, à recaler après M1 et M12).
-          Proposition à trancher avec M12 : ON 43,0 V / OFF 42,3 V.
-          Erreur de seuil ±0,4 V pire cas : la recette mesure le seuil réel.
+          v2.1 (15/11, safety_power/decisions.md §4, simulations.md §1) : ON 43,0 V / OFF 42,3 V.
+          Le cahier donnait 42,5 / 41,8 V, mais V_OFF = 41,8 V est SOUS la tension de pleine
+          charge (42,0 V) : sur un pack plein le hacheur ne s'éteignait plus (82 W pendant
+          plusieurs minutes). Résistances du diviseur en 0,1 % : V_ON 42,78 à 43,12 V,
+          V_OFF 42,12 à 42,46 V pire cas. La LED du hacheur est sur la sortie du pilote,
+          pas sur celle du comparateur. À confirmer avec M12 ; la recette mesure le seuil réel.
         active_discharge: >
           S14 (v1.3) : décharge active du bus PAR LE HACHEUR, commandée par l'ESP32
           (sortie P17 DISCH_REQ du TCA9555, Schottky B5819W + 330 Ohm qui forcent le
