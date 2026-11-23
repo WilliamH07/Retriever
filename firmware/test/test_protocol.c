@@ -72,7 +72,7 @@ static void test_imu_quat(void)
     CHECK(f.id == 0x210u, "id = 0x%03X", f.id);
     CHECK(f.dlc == 8u, "dlc = %u", f.dlc);
 
-    rt_imu_quat_t out;
+    rt_imu_quat_t out = {0};  /* GCC récent (CI) : -Wmaybe-uninitialized sinon */
     CHECK(rt_imu_quat_unpack(&f, &out), "unpack refusé");
 
     /* Résolution Q14 : un demi-LSB vaut 1/32768. */
@@ -100,7 +100,7 @@ static void test_imu_gyro(void)
     rt_frame_t f;
     rt_imu_gyro_pack(&in, &f);
 
-    rt_imu_gyro_t out;
+    rt_imu_gyro_t out = {0};  /* GCC récent (CI) : -Wmaybe-uninitialized sinon */
     CHECK(rt_imu_gyro_unpack(&f, &out), "unpack refusé");
     CHECK_NEAR(out.gx, 0.5, 0.0005);
     CHECK_NEAR(out.gy, -1.25, 0.0005);
@@ -125,7 +125,7 @@ static void test_heartbeat(void)
     rt_frame_t f;
     rt_heartbeat_safety_pack(&in, &f);
 
-    rt_heartbeat_safety_t out;
+    rt_heartbeat_safety_t out = {0};  /* GCC récent (CI) : -Wmaybe-uninitialized sinon */
     CHECK(rt_heartbeat_safety_unpack(&f, &out), "unpack refusé");
     CHECK(out.state == RT_NODE_STATE_READY, "state = %u", out.state);
     CHECK(out.uptime_s == 3600, "uptime = %u", out.uptime_s);
@@ -142,7 +142,7 @@ static void test_time_sync(void)
     rt_frame_t f;
     rt_time_sync_pack(&in, &f);
 
-    rt_time_sync_t out;
+    rt_time_sync_t out = {0};  /* GCC récent (CI) : -Wmaybe-uninitialized sinon */
     CHECK(rt_time_sync_unpack(&f, &out), "unpack refusé");
     CHECK(out.t_host_us == t, "t = %llu, attendu %llu",
           (unsigned long long)out.t_host_us, (unsigned long long)t);
@@ -182,7 +182,7 @@ static void test_saturation(void)
     rt_frame_t f;
     rt_imu_gyro_pack(&in, &f);
 
-    rt_imu_gyro_t out;
+    rt_imu_gyro_t out = {0};  /* GCC récent (CI) : -Wmaybe-uninitialized sinon */
     rt_imu_gyro_unpack(&f, &out);
     CHECK(out.gx > 16.0f && out.gx < 16.4f, "gx saturé à %g", (double)out.gx);
     CHECK(out.gy < -16.0f && out.gy > -16.4f, "gy saturé à %g", (double)out.gy);
