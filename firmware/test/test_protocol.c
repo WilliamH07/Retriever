@@ -156,7 +156,7 @@ static void test_rejects(void)
 {
     printf("Rejets\n");
     rt_frame_t f = {.id = 0x210u, .dlc = 8u, .data = {0}};
-    rt_imu_gyro_t g;
+    rt_imu_gyro_t g = {0};
     CHECK(!rt_imu_gyro_unpack(&f, &g), "un mauvais identifiant a été accepté");
 
     f.id = RT_ID_IMU_GYRO;
@@ -189,7 +189,7 @@ static void test_saturation(void)
 
     rt_imu_quat_t q = {.w = 5.0f, .x = -5.0f, .y = 0.0f, .z = 0.0f};
     rt_imu_quat_pack(&q, &f);
-    rt_imu_quat_t qo;
+    rt_imu_quat_t qo = {0};
     rt_imu_quat_unpack(&f, &qo);
     CHECK(qo.w > 1.9f && qo.w < 2.01f, "w saturé à %g", (double)qo.w);
     CHECK(qo.x < -1.9f && qo.x > -2.01f, "x saturé à %g", (double)qo.x);
