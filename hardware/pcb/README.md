@@ -1,16 +1,25 @@
 # Printed circuit boards
 
-Three boards, **all three redesigned from a clean sheet and drawn in KiCad 10**.
-Status of all three, what blocks each, what must be reviewed:
-[`etat-des-lieux.md`](etat-des-lieux.md) (French). The first
+<p align="center">
+<img src="safety_bus_distribution/fab/render_top.png" width="32%" alt="safety_bus_distribution, top view">
+<img src="motor_interface/fab/render_top.png" width="32%" alt="motor_interface, top view">
+<img src="safety_power/fab/render_top.png" width="32%" alt="safety_power, top view">
+</p>
+
+Three boards, **redesigned from a clean sheet and drawn in KiCad 10**. ERC, DRC
+and schematic parity are at zero on all three; none has been fabricated yet.
+
+| Read | For |
+|---|---|
+| [`etat-des-lieux.md`](etat-des-lieux.md) | Status of all three, what blocks each, what an expert must review (French) |
+| [`simulations.md`](simulations.md) | ngspice results for the chopper, precharge, Hall tap, VR and eFuses (French) |
+| [`conception-v2.md`](conception-v2.md) | The cross-board brief: why v1 failed, principles, decisions D1–D9 (French) |
+| [`outils.md`](outils.md) | The toolchain: KiCad 10 driven from the command line, the Python generator |
+
+The first
 pass (August–September 2026, EasyEDA) is archived in
 [`docs/archive/pcb-v1/`](../../docs/archive/pcb-v1/): its schematic was never
 functional, and parts of its specification contradicted the v1.2 corrections.
-
-**Start here:** [`conception-v2.md`](conception-v2.md) — the cross-board brief
-(French): why v1 failed, design principles, decisions D1–D9 to settle, the
-braking-chain defect to fix, ICD v1.3 corrections. Toolchain:
-[`outils.md`](outils.md) (KiCad 10, driven from the command line).
 
 | Board | Role | Copies | Blocked by | Design brief |
 |---|---|---|---|---|
@@ -54,10 +63,11 @@ Corrections that a new schematic must carry, whatever the tool:
 - `INA228` current and energy monitor (C8). eFuses chosen per voltage class
   (C10). `GPIO12` never used (C14).
 
-## What each board folder will hold
+## What each board folder holds
 
 ```
 README.md            role, connectors, status, render
+sim/                 ngspice netlists, where a block was simulated
 decisions.md         every design choice and its reason (French)
 build.sh, fab.sh     regenerate the KiCad project, then the fabrication files
 scripts/build.py     the board, described once in Python

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 190" width="960" height="190" role="img" aria-labelledby="t d">
   <title id="t">Retriever build stages</title>
-  <desc id="d">Stage 1 architecture and CAD: done. Stage 2 chassis: done. Stage 2b sensors to ROS 2: done. Stage 2c motor bench: current. Stage 3 PCB redesign and power chain energised: next. Stage 4 motors driven with wheels raised: planned. Stage 5 autonomous outdoor navigation: planned.</desc>
+  <desc id="d">Stage 1 architecture and CAD: done. Stage 2 chassis: done. Stage 2b sensors to ROS 2: done. Stage 2c motor bench: current. Stage 3 PCBs designed, to fabricate and energise: next. Stage 4 motors driven with wheels raised: planned. Stage 5 autonomous outdoor navigation: planned.</desc>
   <style>
     svg { --bg:#ffffff; --line:#d0d7de; --fg:#1f2328; --mut:#59636e; --green:#1a7f37; --blue:#0969da; }
     @media (prefers-color-scheme: dark) {
@@ -57,7 +57,7 @@
   <circle class="todo" cx="617" cy="62" r="17"/>
   <text class="n" x="617" y="67" text-anchor="middle" style="fill:var(--mut)">3</text>
   <text class="h" x="617" y="104" text-anchor="middle">PCBs + power</text>
-  <text class="s" x="617" y="122" text-anchor="middle">redesign, energise</text>
+  <text class="s" x="617" y="122" text-anchor="middle">designed, to build</text>
   <text class="s" x="617" y="142" text-anchor="middle">next</text>
 
   <!-- 4 -->

@@ -10,6 +10,8 @@ Une page pour savoir quel document ouvrir, et s'il est à jour.
 | Savoir ce qui tourne aujourd'hui, avec les chiffres | [`bancs/`](bancs/) |
 | Comprendre l'architecture du robot | [`architecture/`](architecture/) |
 | Connaître le brochage d'un connecteur | [`../hardware/icd.yaml`](../hardware/icd.yaml) |
+| Savoir où en sont les cartes électroniques | [`../hardware/pcb/etat-des-lieux.md`](../hardware/pcb/etat-des-lieux.md) |
+| Lire les simulations des cartes | [`../hardware/pcb/simulations.md`](../hardware/pcb/simulations.md) |
 | Savoir quelles mesures bloquent la conception | [`measurements/`](measurements/) |
 | Ouvrir une mise en page Foxglove de banc | [`foxglove/`](foxglove/) |
 | Retrouver une image, un rendu, un schéma | [`images/`](images/) |

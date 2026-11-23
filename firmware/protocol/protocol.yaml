@@ -35,7 +35,7 @@ meta:
     can:
       bitrate: 500000
       standard: "CAN 2.0A, 11 bits, ISO 11898-2"
-      status: target          # cible, non câblée : la carte CAN n'est pas conçue
+      status: target          # cible : carte de distribution conçue (hardware/pcb/safety_bus_distribution), pas encore fabriquée
     serial:
       framing: cobs           # délimiteur 0x00, voir §AC
       crc: crc16_ccitt_false  # polynôme 0x1021, init 0xFFFF, pas de réflexion
