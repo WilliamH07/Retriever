@@ -54,7 +54,7 @@ exit criterion at every stage.
 | 2 | Chassis fabricated and assembled | done |
 | 2b | First sensors published to ROS 2 over a transport agnostic link | done: [IMU](docs/bancs/imu.md) at 99.8 Hz, [lidar](docs/bancs/lidar.md) |
 | 2c | Motor bench: hub motors driven from Foxglove | **current**: [coded, first spin due](docs/bancs/moteurs.md) |
-| 3 | Three PCBs redesigned, power chain energised, no motor connected | next |
+| 3 | Three PCBs redesigned, power chain energised, no motor connected | **boards designed**: [KiCad, ERC and DRC clean](hardware/pcb/), fabrication next |
 | 4 | Motors driven, wheels raised, all stop tests pass | planned |
 | 5 | Autonomous outdoor navigation to a waypoint | planned |
 
@@ -103,9 +103,31 @@ manual battery isolator. The last two contain no code at all.
 </div>
 
 The contactor is designed onto the power board rather than bought: a
-`TPS4810-Q1` driving two opposed MOSFETs cuts a fault in 4.3 µs, draws 4 mW
+`TPS48100-Q1` driving two opposed MOSFETs cuts a fault in 4.3 µs, draws 4 mW
 instead of a coil's 2 to 8 W, and can test itself. The trade off is documented
 in [`12-contacteur-statique.md`](docs/architecture/12-contacteur-statique.md).
+
+## Printed circuit boards
+
+<div align="center">
+<img src="hardware/pcb/safety_bus_distribution/fab/render_top.png" width="32%" alt="safety_bus_distribution, top view">
+<img src="hardware/pcb/motor_interface/fab/render_top.png" width="32%" alt="motor_interface, top view">
+<img src="hardware/pcb/safety_power/fab/render_top.png" width="32%" alt="safety_power, top view">
+</div>
+
+| Board | Role | State |
+|---|---|---|
+| [`safety_bus_distribution`](hardware/pcb/safety_bus_distribution/) | CAN and `/SAFE` trunk, protected 5 V per node, no microcontroller | **v2.0, ready to order** |
+| [`motor_interface`](hardware/pcb/motor_interface/) | Hall tap and command path between a MOTION ESP32 and two ZS-X11H drivers | v2.0 draft, waits for motor measurements |
+| [`safety_power`](hardware/pcb/safety_power/) | Battery input, static contactor, precharge, brake chopper, rails, SAFETY ESP32 | v2.0 draft, waits for pack measurements and an expert review |
+
+Each board is described once, in a Python script that generates both the KiCad 10
+schematic and the layout, so the two cannot drift apart. ERC, DRC and schematic
+parity are all at zero, and the Gerber, BOM and placement files are committed.
+The analogue blocks were simulated with ngspice, which caught one defect before
+anything was ordered ([simulations](hardware/pcb/simulations.md)). None of the
+boards has been built yet: [status of all three](hardware/pcb/etat-des-lieux.md)
+(French).
 
 ## Hardware at a glance
 
@@ -139,7 +161,7 @@ docs/
   archive/        superseded work, kept for history
 hardware/
   icd.yaml        interface control document: every connector, every pin
-  pcb/            the three boards, being redesigned
+  pcb/            three boards, generated from Python into KiCad 10, with fab files
   cad/            laser cut DXF profiles, mechanical notes
   bom/            pointer to the costed bill of materials
 firmware/
@@ -176,9 +198,9 @@ be measured, or an explicit assumption.
 Retriever is self funded by a student. Four items stand between the current
 platform and autonomous outdoor operation:
 
-- **Printed circuit boards.** Three boards are being redesigned from a clean
-  sheet: a motor interface, a safety and power board, and a passive CAN and
-  safety bus distribution board.
+- **Printed circuit boards.** Three boards are designed and checked: a motor
+  interface, a safety and power board, and a passive CAN and safety bus
+  distribution board. Fabrication is the next step.
 - **Embedded AI compute.** The current x86 board runs the navigation stack, but
   not the perception outdoor autonomy asks for.
 - **An outdoor lidar.** The blocking item. The 2D lidar on hand is specified for
