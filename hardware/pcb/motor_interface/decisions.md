@@ -129,7 +129,7 @@ nœud CAN et l'entrée `/SAFE`.
   les retours de masse sous le module et la traversée des coupures de plan par les pistes
   de commande.
 
-## Changements proposés pour l'ICD v1.3 (non appliqués : fichier hors périmètre de cette carte)
+## Changements proposés pour l'ICD v1.3 (appliqués dans `hardware/icd.yaml` v1.3, 14 novembre 2026)
 
 1. `boards.motor_interface.connectors.J7` : supprimer ; alimentation par la broche 1 de la dorsale uniquement.
 2. `J5_J6.pins.7` : `NC` (D5) ; retirer `V5_BRAKE`. Remplacer `safety_warning` (relais NF) par la chaîne MOSFET + porte ET.

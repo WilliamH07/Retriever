@@ -123,6 +123,8 @@ P = {
 R0603 = "Resistor_SMD:R_0603_1608Metric"
 R1206 = "Resistor_SMD:R_1206_3216Metric"
 RES = {  # value -> (LCSC, MPN), all 0603 1 % 75 V unless noted
+    # 0.1 % thin film (chopper threshold divider, simulations.md §1): suffix "-0.1%"
+    "49.9k-0.1%": ("C2828622", "AR03BTCX4992"), "6.19k-0.1%": ("C667011", "TD03G6191BT"),
     "0R": ("C21189", "0603WAF0000T5E"), "10": ("C22859", "0603WAF100JT5E"), "33": ("C23140", "0603WAF330JT5E"),
     "100": ("C22775", "0603WAF1000T5E"), "150": ("C22808", "0603WAF1500T5E"), "221": ("C23342", "0603WAF2210T5E"),
     "330": ("C23138", "0603WAF3300T5E"), "470": ("C23179", "0603WAF4700T5E"), "1k": ("C21190", "0603WAF1001T5E"),
@@ -199,6 +201,8 @@ class Circuit:
         lcsc, mpn = RES[value]
         fp = R1206 if value.endswith("-1206") else R0603
         v = value.replace("-1206", "")
+        if v.endswith("-0.1%"):
+            v = v[:-5] + " 0.1%"
         self.add(ref, ("Device:R", fp, v + ("Ω" if v[-1].isdigit() else ""), lcsc, mpn), {"1": a, "2": b},
                  pcb, rot, dnp, sch_rot=90)
 
@@ -284,7 +288,7 @@ def circuit() -> Circuit:
     # =====================================================================
     #  3. Brake chopper: analog, bus-powered, downstream of the contactor
     # =====================================================================
-    c.block("3. HACHEUR DE FREINAGE — comparateur analogique alimenté par le bus, ON 42,5 V / OFF 41,8 V", 40, 0)
+    c.block("3. HACHEUR DE FREINAGE — comparateur analogique alimenté par le bus, ON 43,0 V / OFF 42,3 V", 40, 0)
     A("J12", P["LUG4"], {"1": "BUS_P", "2": "CHOP_N"}, (194.5 + XR, 36), 270, value="BRAKE_CHOPPER (M4)")
     A("Q5", P["FET"], {"1": "CH_G", "4": "CHOP_N", "2": N, "3": N, "5": N, "6": N, "7": N}, (176 + XR, 56), 0)
     A("D8", P["SS510C"], {"1": "BUS_P", "2": "CHOP_N"}, (186 + XR, 46.4), 270)
@@ -300,11 +304,13 @@ def circuit() -> Circuit:
     R("R22", "10k", "CH_12V", "CH_REF", (148.0 + x0, 55.5), 90)
     A("D9", P["LM4040"], {"1": "CH_REF", "2": N, "3": None}, (145 + x0, 57.5), 0)
     C("C11", "100n", "CH_REF", N, (141.6 + x0, 57.5), 90)
-    # Positive-feedback divider: V_on = 2.5 x (1 + Rt/Rb + Rt/Rh) = 42.50 V, ΔV = V_oh x Rt/Rh = 0.70 V.
-    R("R23", "49.9k", "BUS_P", "CH_T", (140 + x0, 46.6), 270)
-    R("R24", "49.9k", "CH_T", "CH_SNS", (140 + x0, 49.8), 270)
-    R("R25", "6.04k", "CH_SNS", "CH_B", (137.5 + x0, 53.0), 270)
-    R("R26", "221", "CH_B", N, (137.5 + x0, 56.2), 270)
+    # Positive-feedback divider (v2.1, simulations.md §1): V_on = 2.5 x (1 + Rt/Rb + Rt/Rh) = 42.95 V,
+    # ΔV = V_oh x Rt/Rh = 0.66 V with V_oh = 11.2 V -> V_off = 42.3 V. Rt and Rb are 0.1 %: worst case
+    # V_off 42.1 V, above the full pack (42.0 V). R26 is a 0 Ω link (footprint kept from v2.0).
+    R("R23", "49.9k-0.1%", "BUS_P", "CH_T", (140 + x0, 46.6), 270)
+    R("R24", "49.9k-0.1%", "CH_T", "CH_SNS", (140 + x0, 49.8), 270)
+    R("R25", "6.19k-0.1%", "CH_SNS", "CH_B", (137.5 + x0, 53.0), 270)
+    R("R26", "0R", "CH_B", N, (137.5 + x0, 56.2), 270)
     R("R27", "1.69M", "CH_SNS", "CH_CMD", (141 + x0, 53.4), 0)
     C("C12", "1n", "CH_SNS", N, (140 + x0, 56.6), 90)
     R("R28", "10k", "CH_12V", "CH_CMD", (148.0 + x0, 51.0), 90)
@@ -315,7 +321,8 @@ def circuit() -> Circuit:
     R("R30", "100k", "CH_G", N, (159.5 + x0, 62.8), 0)
     R("R31", "100k", "CH_CMD", "CHOP_ACT", (154.5 + x0, 62.8), 0)
     R("R32", "33k", "CHOP_ACT", G, (154.5 + x0, 72), 90)
-    R("R33", "4.7k", "CH_CMD", "CH_LED", (144.5 + x0, 62.8), 0)
+    # LED on the driver output (12 V), not on the comparator output: that load pulled CH_CMD down to 4.8 V.
+    R("R33", "4.7k", "CH_DRV", "CH_LED", (144.5 + x0, 62.8), 0)
     A("D10", P["LED_R"], {"1": N, "2": "CH_LED"}, (148.0 + x0, 62.8), 180, value="CHOP")
     # Active bus discharge (cahier #8): the expander may force the comparator on (OR input).
     # Node impedance ≈ 5.9 kΩ: 3.05 V through 330 Ω lifts CH_SNS to ≈ 2.9 V > 2.5 V.

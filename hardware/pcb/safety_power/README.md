@@ -25,7 +25,8 @@ Rebuild everything: `./build.sh` (placement, power copper, Freerouting, then a
 clean-up pass by [`scripts/patchroute.py`](scripts/patchroute.py); 30–60 minutes) then
 `./fab.sh`. Freerouting is not deterministic: a rebuild gives an equivalent board, not an
 identical one, and may leave a connection for the clean-up pass or for hand routing. The
-committed board took one hand-placed via (net `EFUSE_FLT_N`, near U14) after that pass. Toolchain: [`../outils.md`](../outils.md). Do not edit the
+committed board took one hand-placed via (net `EFUSE_FLT_N`, near U14) after that pass, and was
+then edited in place for the chopper fix of 15 November (`R23`–`R26`, `R33`; see `decisions.md` §4). Toolchain: [`../outils.md`](../outils.md). Do not edit the
 KiCad files by hand: change `scripts/build.py` and rebuild.
 
 ## What it does
@@ -42,7 +43,7 @@ The board that decides whether the robot may move.
 - **Precharge** through an off-board 10 Ω / 25 W resistor (`J13`), P-FET driven by the
   ESP32, not by the controller.
 - **Brake chopper**: analogue comparator powered **by the bus itself** through a 100 V LDO,
-  42.5 V on / 41.8 V off, 22 Ω / 100 W off-board (`J12`). It also serves as the active bus
+  43.0 V on / 42.3 V off (v2.1, simulated), 22 Ω / 100 W off-board (`J12`). It also serves as the active bus
   discharge when the ESP32 asks for it with the contactor open.
 - **Four motor branches**, each with a MINI 58 V 25 A blade fuse in a PCB holder, a 2 mΩ
   4-wire shunt and an `INA228` whose bus input sits after the fuse (blown-fuse detection).
@@ -75,9 +76,9 @@ M1 (BMS cut-off), M2 (pack resistance), M10 (bus capacitance), M12 (driver input
 capacitor rating), PACK_ID (pack and BMS labels), P1–P3 (ESP32 module footprint, pin
 order, PSRAM variant). See [`docs/measurements/`](../../../docs/measurements/).
 
-Pinout: `boards.safety_power` in [`hardware/icd.yaml`](../../icd.yaml). The board departs
+Pinout: `boards.safety_power` in [`hardware/icd.yaml`](../../icd.yaml). The board departed
 from ICD v1.2 in a few places (ring-lug studs, MINI 58 V fuses, new `5V_BRAKE`
-connectors J22/J23, BMS on JST GH): the proposed v1.3 changes are listed at the end of
+connectors J22/J23, BMS on JST GH): these changes are applied in ICD v1.3 and listed at the end of
 [`decisions.md`](decisions.md).
 
 <p align="center">
