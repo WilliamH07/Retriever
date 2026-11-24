@@ -1,0 +1,43 @@
+* Précharge mainboard (copie de safety_power/sim/precharge.cir) : FET P Q3 + NPN Q4, diode D3, R7 10 Ω sur la carte
+* Bus supposé 10 mF (étude 12, à confirmer par M10). PRECH_EN monte à t = 10 ms.
+.param VBAT=42 CBUS=10m RPRE=10
+VB bat 0 {VBAT}
+VEN en 0 PWL(0 0 10m 0 10.01m 3.3)
+* étage de commande
+R17 en b 4.7k
+R18 b 0 100k
+Q4 c b 0 NPN5551
+.model NPN5551 NPN(IS=2.5e-14 BF=150 VAF=100 CJC=5p CJE=20p TF=0.5n)
+R16 g c 22k
+R15 g bat 10k
+D6 g bat DZ12
+.model DZ12 D(BV=12 IBV=5m RS=5 CJO=50p)
+* SUD50P10-43L : P-canal 100 V, 43 mOhm (modèle simplifié)
+M3 p g bat bat PF
+.model PF VDMOS(pchan Vto=-2.5 Kp=40 Rd=0.03 Rs=0.01 Cgs=3.5n Cgdmax=1.5n Cgdmin=0.2n Is=1e-12)
+* D7 SS510C
+D7 p n SS510
+.model SS510 D(IS=20u N=1.3 RS=0.02 CJO=400p BV=110)
+RPRE n bus {RPRE}
+CBUS bus 0 {CBUS} IC=0
+.tran 20u 0.6 UIC
+.control
+run
+let ipre = (v(n)-v(bus))/10
+let pq3 = (v(bat)-v(p))*ipre
+let pr = ipre*ipre*10
+let vgs = v(g)-v(bat)
+meas tran IPK max ipre
+meas tran T90 when v(bus)={0.9*42} rise=1
+meas tran T95 when v(bus)={0.95*42} rise=1
+meas tran T99 when v(bus)={0.99*42} rise=1
+meas tran PQ3PK max pq3 from=10m to=0.6
+meas tran EQ3 integ pq3 from=10m to=0.6
+meas tran TON when vgs=-10 fall=1
+meas tran PRPK max pr
+meas tran ER integ pr from=0 to=0.6
+
+meas tran VGSMIN min vgs
+meas tran VFIN find v(bus) at=0.6
+.endc
+.end

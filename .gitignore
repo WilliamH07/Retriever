@@ -59,6 +59,7 @@ stale-*
 
 # KiCad : fichiers locaux et intermédiaires
 hardware/pcb/*/build/
+hardware/pcb/prototypage/*/build/
 *.kicad_prl
 *-backups/
 fp-info-cache

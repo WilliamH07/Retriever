@@ -27,6 +27,9 @@ functional, and parts of its specification contradicted the v1.2 corrections.
 | `motor_interface` | Hall tap to the ESP32, command path VR / DIR / EL / STOP to two ZS-X11H | 2 of 5 | **v2.0-draft**; M7, HALL_OC, P1–P3 | [decisions](motor_interface/decisions.md) · [brief](motor_interface/cahier-des-charges.md) |
 | `safety_power` | Battery input, static contactor, precharge, brake chopper, INA228, DC/DC rails, SAFETY ESP32 | 1 of 5 | **v2.0-draft**; M1, M2, M10, M12, PACK_ID, P1–P3, expert review | [decisions](safety_power/decisions.md) · [brief](safety_power/cahier-des-charges.md) |
 
+Two single-board studies for the PCBWay sponsorship (`mainboard`, `logic_board`) are
+kept in [`prototypage/`](prototypage/): neither fits the 60 € budget.
+
 Build order, from [`11-corrections-v1.2.md`](../../docs/architecture/11-corrections-v1.2.md)
 part 6:
 
